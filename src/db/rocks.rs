@@ -5,7 +5,7 @@
 //!
 //! Uses RocksDB secondary mode to follow Zebra's writes in real-time.
 
-use rocksdb::{DB, Options, IteratorMode};
+use rocksdb::{DB, Options, IteratorMode, ColumnFamilyDescriptor, MergeOperands};
 use std::io::Cursor;
 use std::time::Instant;
 use crate::config::Config;
@@ -13,25 +13,47 @@ use crate::models::{Block, Transaction, TransparentInput, TransparentOutput};
 use zebra_chain::block::Header as ZebraHeader;
 use zebra_chain::serialization::ZcashDeserialize;
 
-/// Zebra column families we care about
-pub const COLUMN_FAMILIES: &[&str] = &[
-    "hash_by_height",
-    "height_by_hash",
-    "block_header_by_height",
-    "tx_by_loc",
-    "hash_by_tx_loc",
-    "tx_loc_by_hash",
-    "balance_by_transparent_addr",
-    "tx_loc_by_transparent_addr_loc",
-    "utxo_by_out_loc",
-    "utxo_loc_by_transparent_addr_loc",
-    "sprout_nullifiers",
-    "sapling_nullifiers",
-    "orchard_nullifiers",
-    "sprout_anchors",
-    "sapling_anchors",
-    "orchard_anchors",
-];
+const BALANCE_CF: &str = "balance_by_transparent_addr";
+
+/// Zebra's merge operator for balance_by_transparent_addr.
+/// Layout per value: balance (i64 LE, 8B) + location (8B) + received (u64 LE, 8B) = 24B.
+/// Merge = add balances, saturating-add received, keep min location.
+fn merge_balance(
+    _key: &[u8],
+    existing: Option<&[u8]>,
+    operands: &MergeOperands,
+) -> Option<Vec<u8>> {
+    let parse = |bytes: &[u8]| -> (i64, [u8; 8], u64) {
+        let balance = if bytes.len() >= 8 {
+            i64::from_le_bytes(bytes[..8].try_into().unwrap())
+        } else { 0 };
+        let mut loc = [0u8; 8];
+        if bytes.len() >= 16 {
+            loc.copy_from_slice(&bytes[8..16]);
+        } else {
+            loc = [0xFF; 8]; // max = dummy sentinel
+        }
+        let received = if bytes.len() >= 24 {
+            u64::from_le_bytes(bytes[16..24].try_into().unwrap())
+        } else { 0 };
+        (balance, loc, received)
+    };
+
+    let mut acc = existing.map(parse).unwrap_or((0, [0xFF; 8], 0));
+
+    for op in operands.iter() {
+        let (b, l, r) = parse(op);
+        acc.0 = acc.0.wrapping_add(b);
+        if l < acc.1 { acc.1 = l; }
+        acc.2 = acc.2.saturating_add(r);
+    }
+
+    let mut out = Vec::with_capacity(24);
+    out.extend_from_slice(&acc.0.to_le_bytes());
+    out.extend_from_slice(&acc.1);
+    out.extend_from_slice(&acc.2.to_le_bytes());
+    Some(out)
+}
 
 /// Wrapper around Zebra's RocksDB state
 pub struct ZebraState {
@@ -54,17 +76,29 @@ impl ZebraState {
         opts.create_if_missing(false);
         opts.set_max_open_files(config.max_open_files);
 
-        // Get actual column families from database
         let cf_names = DB::list_cf(&Options::default(), path)
             .map_err(|e| format!("Failed to list column families: {}", e))?;
 
-        // Create secondary path for RocksDB secondary instance
+        let cf_descriptors: Vec<ColumnFamilyDescriptor> = cf_names
+            .iter()
+            .map(|name| {
+                let mut cf_opts = Options::default();
+                if name == BALANCE_CF {
+                    cf_opts.set_merge_operator_associative(
+                        "fetch_add_balance_and_received",
+                        merge_balance,
+                    );
+                }
+                ColumnFamilyDescriptor::new(name, cf_opts)
+            })
+            .collect();
+
         let secondary_path = std::env::temp_dir().join("cipherscan-rocks-secondary");
         std::fs::create_dir_all(&secondary_path)
             .map_err(|e| format!("Failed to create secondary path: {}", e))?;
 
         let start = Instant::now();
-        let db = DB::open_cf_as_secondary(&opts, path, &secondary_path, &cf_names)
+        let db = DB::open_cf_descriptors_as_secondary(&opts, path, &secondary_path, cf_descriptors)
             .map_err(|e| format!("Failed to open RocksDB as secondary: {}", e))?;
 
         tracing::info!("RocksDB opened in {:?}", start.elapsed());

@@ -33,7 +33,7 @@ fn unix_timestamp_secs() -> u64 {
 /// Main indexer orchestrator
 pub struct Indexer {
     config: Config,
-    zebra: ZebraState,
+    zebra: Option<ZebraState>,
     postgres: PostgresWriter,
 }
 
@@ -45,9 +45,16 @@ impl Indexer {
         "last_failed_at",
         "consecutive_failure_count",
     ];
-    /// Create new indexer
+    /// Create new indexer.
+    /// RocksDB is optional — if it fails to open, live (RPC-only) mode still works.
     pub async fn new(config: Config) -> Result<Self, String> {
-        let zebra = ZebraState::open(&config)?;
+        let zebra = match ZebraState::open(&config) {
+            Ok(z) => Some(z),
+            Err(e) => {
+                eprintln!("⚠️  RocksDB unavailable ({}), backfill disabled — live mode OK", e);
+                None
+            }
+        };
         let postgres = PostgresWriter::connect(&config.database_url)
             .await
             .map_err(|e| format!("PostgreSQL error: {}", e))?;
@@ -145,20 +152,19 @@ impl Indexer {
         Ok(failure_count > 0)
     }
 
-    /// Index a single block and all its transactions
+    /// Index a single block and all its transactions (requires RocksDB)
     async fn index_block(&self, height: u32) -> Result<(u32, u32), String> {
+        let zebra = self.zebra.as_ref().ok_or("RocksDB not available — cannot use backfill mode")?;
         // Get block hash
-        let hash_bytes = self.zebra.get_block_hash(height)?;
+        let hash_bytes = zebra.get_block_hash(height)?;
         let mut hash_rev = hash_bytes;
         hash_rev.reverse();
         let block_hash = hex::encode(&hash_rev);
 
-        // Get block header for timestamp and other fields
-        let header = self.zebra.get_block_header(height)?;
+        let header = zebra.get_block_header(height)?;
         let block_time = header.time;
 
-        // Get all transactions in block
-        let raw_txs = self.zebra.iter_block_transactions(height)?;
+        let raw_txs = zebra.iter_block_transactions(height)?;
         let tx_count = raw_txs.len() as u32;
 
         // Parse all transactions
@@ -170,7 +176,7 @@ impl Indexer {
                 .map_err(|e| format!("Failed to parse tx {}:{}: {}", height, tx_index, e))?;
 
             // Resolve input addresses and values from previous outputs
-            TransactionParser::resolve_inputs(&mut tx, &self.zebra);
+            TransactionParser::resolve_inputs(&mut tx, zebra);
 
             // Extract shielded flows
             let tx_flows = ShieldedFlow::from_transaction(&tx);

@@ -1,0 +1,25 @@
+[Unit]
+Description=CipherScan Rust Indexer (Mainnet)
+After=network.target zebrad.service postgresql.service
+Wants=zebrad.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/cipherscan-rust
+
+# Load environment from .env file (contains DATABASE_URL with password)
+EnvironmentFile=/root/cipherscan-rust/.env
+
+ExecStart=/root/cipherscan-rust/target/release/cipherscan-indexer live
+
+Restart=always
+RestartSec=10
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=cipherscan-rust
+
+[Install]
+WantedBy=multi-user.target

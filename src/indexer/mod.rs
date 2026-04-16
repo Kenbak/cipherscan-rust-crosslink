@@ -201,13 +201,14 @@ impl Indexer {
         Ok((tx_count, flow_count as u32))
     }
 
-    /// Run backfill from start_height to end_height (or tip)
+    /// Run backfill from start_height to end_height (or tip). Requires RocksDB.
     pub async fn backfill(
         &self,
         start_height: Option<u32>,
         end_height: Option<u32>,
     ) -> Result<(), String> {
-        let tip = self.zebra.get_tip_height()?;
+        let zebra = self.zebra.as_ref().ok_or("RocksDB not available — cannot use backfill mode")?;
+        let tip = zebra.get_tip_height()?;
 
         // If no start specified, resume from backfill checkpoint
         let start = match start_height {

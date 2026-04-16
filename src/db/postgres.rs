@@ -700,4 +700,42 @@ impl PostgresWriter {
         db_tx.commit().await?;
         Ok(count)
     }
+
+    /// Update finality_status for all blocks based on the current finalized height.
+    /// Blocks at or below `finalized_height` are marked "Finalized";
+    /// blocks above it are marked "NotYetFinalized".
+    /// Uses IS DISTINCT FROM to only touch rows whose status actually changed.
+    pub async fn update_finality_status(&self, finalized_height: u32) -> Result<u64, sqlx::Error> {
+        let finalized = sqlx::query(
+            r#"
+            UPDATE blocks SET finality_status = 'Finalized'
+            WHERE height <= $1
+              AND finality_status IS DISTINCT FROM 'Finalized'
+            "#,
+        )
+        .bind(finalized_height as i64)
+        .execute(&self.pool)
+        .await?;
+
+        let pending = sqlx::query(
+            r#"
+            UPDATE blocks SET finality_status = 'NotYetFinalized'
+            WHERE height > $1
+              AND finality_status IS DISTINCT FROM 'NotYetFinalized'
+            "#,
+        )
+        .bind(finalized_height as i64)
+        .execute(&self.pool)
+        .await?;
+
+        let total = finalized.rows_affected() + pending.rows_affected();
+        if total > 0 {
+            tracing::info!(
+                finalized_height,
+                rows_updated = total,
+                "Updated finality status"
+            );
+        }
+        Ok(total)
+    }
 }

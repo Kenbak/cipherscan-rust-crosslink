@@ -316,6 +316,20 @@ impl Indexer {
             total_txs as f64 / elapsed.as_secs_f64()
         );
 
+        // Update finality status after backfill completes
+        if let Ok(rpc) = crate::db::ZebraRpc::from_env() {
+            if let Some(finalized_h) = rpc.get_finalized_height().await {
+                match self.postgres.update_finality_status(finalized_h).await {
+                    Ok(updated) => {
+                        println!("   🔒 Finality: {} blocks updated (finalized through {})", updated, finalized_h);
+                    }
+                    Err(e) => {
+                        println!("   ⚠️ Finality update error: {}", e);
+                    }
+                }
+            }
+        }
+
         Ok(())
     }
 
@@ -559,6 +573,19 @@ impl Indexer {
                         .await
                         .map_err(|e| format!("Checkpoint error: {}", e))?;
                     println!("   ✅ Synced to block {}", last_success);
+                }
+            }
+
+            // Update finality status from Crosslink TFL after each cycle
+            if let Some(finalized_h) = rpc.get_finalized_height().await {
+                match self.postgres.update_finality_status(finalized_h).await {
+                    Ok(updated) if updated > 0 => {
+                        println!("   🔒 Finality updated: finalized through block {}", finalized_h);
+                    }
+                    Err(e) => {
+                        println!("   ⚠️ Finality update error: {}", e);
+                    }
+                    _ => {}
                 }
             }
         }

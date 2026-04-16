@@ -214,7 +214,8 @@ CREATE TABLE public.blocks (
     total_fees bigint DEFAULT 0,
     miner_address text,
     created_at timestamp without time zone DEFAULT now(),
-    confirmations integer
+    confirmations integer,
+    finality_status text
 );
 
 
@@ -1026,6 +1027,13 @@ CREATE INDEX idx_blocks_previous_hash ON public.blocks USING btree (previous_blo
 --
 
 CREATE INDEX idx_blocks_timestamp ON public.blocks USING btree ("timestamp" DESC);
+
+
+--
+-- Name: idx_blocks_finality; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_blocks_finality ON public.blocks USING btree (finality_status);
 
 
 --

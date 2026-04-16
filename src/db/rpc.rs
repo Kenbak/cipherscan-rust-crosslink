@@ -188,4 +188,20 @@ impl ZebraRpc {
         self.call("getblock", vec![serde_json::json!(hash), serde_json::json!(0)])
             .await
     }
+
+    /// Get finalized block height from Crosslink TFL.
+    /// Returns None if the RPC is not available (non-crosslink networks).
+    pub async fn get_finalized_height(&self) -> Option<u32> {
+        let result: Result<serde_json::Value, _> =
+            self.call("get_tfl_final_block_height_and_hash", vec![]).await;
+        match result {
+            Ok(val) => {
+                val.get("height")
+                    .and_then(|h| h.as_u64())
+                    .or_else(|| val.as_array().and_then(|a| a.first()?.as_u64()))
+                    .map(|h| h as u32)
+            }
+            Err(_) => None,
+        }
+    }
 }

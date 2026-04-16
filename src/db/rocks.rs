@@ -526,7 +526,7 @@ impl ZebraState {
 
         let (p2pkh_prefix, p2sh_prefix) = match self.config.network {
             Network::Mainnet => ([0x1C, 0xB8], [0x1C, 0xBD]), // t1, t3
-            Network::Testnet => ([0x1D, 0x25], [0x1C, 0xBA]), // tm, t2
+            Network::Testnet | Network::Crosslink => ([0x1D, 0x25], [0x1C, 0xBA]), // tm, t2
         };
 
         // P2PKH: OP_DUP OP_HASH160 <20 bytes> OP_EQUALVERIFY OP_CHECKSIG

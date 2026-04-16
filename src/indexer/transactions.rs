@@ -16,7 +16,7 @@ impl TransactionParser {
     fn addr_prefixes(network: Network) -> ([u8; 2], [u8; 2]) {
         match network {
             Network::Mainnet => ([0x1C, 0xB8], [0x1C, 0xBD]), // t1, t3
-            Network::Testnet => ([0x1D, 0x25], [0x1C, 0xBA]), // tm, t2
+            Network::Testnet | Network::Crosslink => ([0x1D, 0x25], [0x1C, 0xBA]), // tm, t2
         }
     }
 
@@ -45,13 +45,13 @@ impl TransactionParser {
         let txid = tx.hash().to_string();
 
         // Extract data based on transaction version
-        // Use transmute-like conversion via serialization or raw access
         let (version, lock_time_raw, expiry_height_raw): (i32, u32, Option<u32>) = match &tx {
             V1 { .. } => (1, 0, None),
             V2 { .. } => (2, 0, None),
             V3 { expiry_height, .. } => (3, 0, Some(expiry_height.0)),
             V4 { expiry_height, .. } => (4, 0, Some(expiry_height.0)),
             V5 { expiry_height, .. } => (5, 0, Some(expiry_height.0)),
+            VCrosslink { expiry_height, .. } => (7, 0, Some(expiry_height.0)),
         };
 
         // Get transparent inputs/outputs
@@ -124,7 +124,8 @@ impl TransactionParser {
                     .unwrap_or((0, 0));
                 (js_count as u16, spends as u16, outputs as u16, 0)
             }
-            V5 { sapling_shielded_data, orchard_shielded_data, .. } => {
+            V5 { sapling_shielded_data, orchard_shielded_data, .. }
+            | VCrosslink { sapling_shielded_data, orchard_shielded_data, .. } => {
                 let (spends, outputs) = sapling_shielded_data.as_ref()
                     .map(|d| (d.spends().count(), d.outputs().count()))
                     .unwrap_or((0, 0));
@@ -142,7 +143,8 @@ impl TransactionParser {
                     .map(|d| i64::from(d.value_balance))
                     .unwrap_or(0)
             }
-            V5 { sapling_shielded_data, .. } => {
+            V5 { sapling_shielded_data, .. }
+            | VCrosslink { sapling_shielded_data, .. } => {
                 sapling_shielded_data.as_ref()
                     .map(|d| i64::from(d.value_balance))
                     .unwrap_or(0)
@@ -151,7 +153,8 @@ impl TransactionParser {
         };
 
         let orchard_value_balance: i64 = match &tx {
-            V5 { orchard_shielded_data, .. } => {
+            V5 { orchard_shielded_data, .. }
+            | VCrosslink { orchard_shielded_data, .. } => {
                 orchard_shielded_data.as_ref()
                     .map(|d| i64::from(d.value_balance))
                     .unwrap_or(0)

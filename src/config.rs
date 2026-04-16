@@ -30,6 +30,7 @@ pub struct Config {
 pub enum Network {
     Mainnet,
     Testnet,
+    Crosslink,
 }
 
 impl Default for Config {
@@ -71,6 +72,7 @@ impl Config {
         if let Ok(net) = env::var("NETWORK") {
             config.network = match net.to_lowercase().as_str() {
                 "testnet" => Network::Testnet,
+                "crosslink" => Network::Crosslink,
                 _ => Network::Mainnet,
             };
         } else if config.zebra_state_path.to_string_lossy().contains("testnet") {
@@ -96,6 +98,7 @@ impl Config {
         match self.network {
             Network::Mainnet => "mainnet",
             Network::Testnet => "testnet",
+            Network::Crosslink => "crosslink",
         }
     }
 }

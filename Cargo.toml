@@ -1,8 +1,8 @@
 [package]
-name = "cipherscan-indexer"
+name = "cipherscan-indexer-crosslink"
 version = "0.1.0"
 edition = "2021"
-description = "Fast Rust indexer for CipherScan - reads directly from Zebra's RocksDB"
+description = "CipherScan indexer for Zcash Crosslink feature net — fork of cipherscan-rust with VCrosslink transaction support"
 authors = ["CipherScan"]
 
 [dependencies]
@@ -17,8 +17,8 @@ rocksdb = "0.22"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
-# Zcash parsing (from Zebra)
-zebra-chain = "3"
+# Zcash parsing (from zebra-crosslink fork — includes VCrosslink tx support)
+zebra-chain = { git = "https://github.com/ShieldedLabs/crosslink_monolith.git", rev = "d880b65" }
 
 # CLI
 clap = { version = "4", features = ["derive", "env"] }

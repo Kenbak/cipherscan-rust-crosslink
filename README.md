@@ -1,33 +1,30 @@
-# CipherScan Rust Indexer
+# CipherScan Rust Indexer — Crosslink Edition
 
-High-performance Zcash blockchain indexer written in Rust. Reads directly from Zebra's RocksDB state for maximum speed.
+Fork of [cipherscan-rust](https://github.com/Kenbak/cipherscan-rust) for the **Zcash Crosslink feature net** (hybrid PoW/PoS with finality).
 
-## Features
+## What's Different from Upstream
 
-- **Direct RocksDB access**: No RPC overhead, reads Zebra's state directly
-- **~100 blocks/sec**: 10-50x faster than the Node.js indexer
-- **Full data parity**: Produces identical data to the Node.js indexer
-- **PostgreSQL output**: Same schema, drop-in replacement
-- **Validation mode**: Compare output against existing production data
+- **`zebra-chain` from `zebra-crosslink` fork** — supports VCrosslink (v7) transactions with `staking_action`
+- **`NETWORK=crosslink` config** — uses testnet address prefixes, crosslink-specific identification
+- **VCrosslink transaction parsing** — correctly extracts version 7 txs with staking data
+- **Staking schema** — migration 008 adds `staking_action_type`, `staking_bond_key`, `staking_delegatee` columns
+
+Everything else (RocksDB access, PostgreSQL output, backfill/live modes, health monitoring) works identically.
 
 ## Requirements
 
 - Rust 1.75+ (for async traits)
-- Running Zebra node with synced state
+- Running `zebrad-crosslink` node with synced state
 - PostgreSQL 14+
-- ~50GB disk space for the indexed database
 
 ## Installation
 
 ```bash
-# Clone the repository
-git clone https://github.com/Kenbak/cipherscan-rust.git
-cd cipherscan-rust
+git clone https://github.com/Kenbak/cipherscan-rust-crosslink.git
+cd cipherscan-rust-crosslink
 
-# Build release binary
 cargo build --release
-
-# Binary will be at ./target/release/cipherscan-indexer
+# Binary: ./target/release/cipherscan-indexer-crosslink
 ```
 
 ## Configuration
@@ -41,8 +38,8 @@ ZEBRA_STATE_PATH=/root/.cache/zebra/state/v27/mainnet
 # Required: PostgreSQL connection URL
 DATABASE_URL=postgres://user:password@localhost/zcash_explorer
 
-# Optional: Network (mainnet or testnet)
-NETWORK=mainnet
+# Network — set to crosslink for the Crosslink feature net
+NETWORK=crosslink
 
 # Optional: Zebra gRPC for instant live notifications
 ZEBRA_GRPC_URL=http://127.0.0.1:8230

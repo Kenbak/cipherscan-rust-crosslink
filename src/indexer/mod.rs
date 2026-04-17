@@ -585,6 +585,29 @@ impl Indexer {
 
             // Update finality status from Crosslink TFL after each cycle
             if let Some(finalized_h) = rpc.get_finalized_height().await {
+                // Health check: warn loudly if we're diverging from the live chain.
+                // Per ShieldedLabs, a sidechain >100 blocks corrupts the finalizer
+                // roster and requires a full Zebra cache wipe to recover.
+                let gap = rpc_tip.saturating_sub(finalized_h);
+                if gap > 100 {
+                    println!(
+                        "   🚨 FINALITY GAP CRITICAL: {} blocks (tip {} vs finalized {}). \
+                         Node may be on a sidechain; a Zebra cache wipe may be required.",
+                        gap, rpc_tip, finalized_h
+                    );
+                    tracing::error!(
+                        gap,
+                        rpc_tip,
+                        finalized_h,
+                        "Finality gap exceeded 100 blocks — possible sidechain divergence"
+                    );
+                } else if gap > 20 {
+                    println!(
+                        "   ⚠️ Finality gap growing: {} blocks (tip {} vs finalized {})",
+                        gap, rpc_tip, finalized_h
+                    );
+                }
+
                 match self.postgres.update_finality_status(finalized_h).await {
                     Ok(updated) if updated > 0 => {
                         println!("   🔒 Finality updated: finalized through block {}", finalized_h);

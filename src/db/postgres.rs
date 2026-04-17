@@ -306,6 +306,9 @@ impl PostgresWriter {
             difficulty: 0.0,
             nonce: String::new(),
             solution: String::new(),
+            bft_referenced_hash: None,
+            bft_signature_count: None,
+            bft_signer_keys: Vec::new(),
         };
         self.batch_insert_with_header(height, hash, timestamp, transactions, &header)
             .await
@@ -343,15 +346,16 @@ impl PostgresWriter {
             }
         });
 
-        // Insert block with all header fields
+        // Insert block with all header fields + BFT fat pointer data
         sqlx::query(
             r#"
             INSERT INTO blocks (
                 height, hash, timestamp, transaction_count, total_fees,
                 version, merkle_root, final_sapling_root, bits, nonce, solution,
-                difficulty, previous_block_hash, size, miner_address
+                difficulty, previous_block_hash, size, miner_address,
+                bft_referenced_hash, bft_signature_count, bft_signer_keys
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
             ON CONFLICT (height) DO UPDATE SET
                 hash = EXCLUDED.hash,
                 transaction_count = EXCLUDED.transaction_count,
@@ -365,7 +369,10 @@ impl PostgresWriter {
                 difficulty = EXCLUDED.difficulty,
                 previous_block_hash = EXCLUDED.previous_block_hash,
                 size = EXCLUDED.size,
-                miner_address = EXCLUDED.miner_address
+                miner_address = EXCLUDED.miner_address,
+                bft_referenced_hash = EXCLUDED.bft_referenced_hash,
+                bft_signature_count = EXCLUDED.bft_signature_count,
+                bft_signer_keys = EXCLUDED.bft_signer_keys
             "#,
         )
         .bind(height as i64)
@@ -383,6 +390,9 @@ impl PostgresWriter {
         .bind(&header.previous_block_hash)
         .bind(block_size)
         .bind(&miner_address)
+        .bind(&header.bft_referenced_hash)
+        .bind(header.bft_signature_count)
+        .bind(&header.bft_signer_keys)
         .execute(&mut *db_tx)
         .await?;
 

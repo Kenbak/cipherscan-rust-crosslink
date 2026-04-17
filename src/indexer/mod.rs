@@ -420,7 +420,10 @@ impl Indexer {
             transactions.push(tx);
         }
 
-        // Create header from RPC block info
+        // Create header from RPC block info.
+        // Note: JSON-RPC mode doesn't expose fat_pointer_to_bft_block, so
+        // the BFT columns stay null for blocks indexed this way. When we
+        // re-index from RocksDB (backfill mode) the BFT data is populated.
         let header = crate::db::ParsedBlockHeader {
             version: block_info.version,
             previous_block_hash: block_info.previousblockhash.clone().unwrap_or_default(),
@@ -431,6 +434,9 @@ impl Indexer {
             nonce: block_info.nonce.clone(),
             difficulty: block_info.difficulty,
             solution: String::new(), // Not returned by RPC, but not critical
+            bft_referenced_hash: None,
+            bft_signature_count: None,
+            bft_signer_keys: Vec::new(),
         };
 
         // Write block, transactions, and flows atomically.
@@ -563,8 +569,23 @@ impl Indexer {
 
                 let mut last_success = last_indexed;
 
+                // Ask RocksDB secondary to pick up blocks zebrad has just
+                // written. Required before we can read the latest headers.
+                if let Some(zebra) = self.zebra.as_ref() {
+                    let _ = zebra.try_catch_up();
+                }
+
                 for height in (last_indexed + 1)..=rpc_tip {
-                    match self.index_block_from_rpc(&rpc, height).await {
+                    // Prefer RocksDB path — it's the only path that can
+                    // extract `fat_pointer_to_bft_block` from the header
+                    // (JSON-RPC doesn't expose that field). Falls back to
+                    // RPC-only mode if RocksDB is unavailable.
+                    let result = if self.zebra.is_some() {
+                        self.index_block(height).await
+                    } else {
+                        self.index_block_from_rpc(&rpc, height).await
+                    };
+                    match result {
                         Ok((tx_count, flow_count)) => {
                             println!(
                                 "   ✅ Block {} | {} txs, {} flows",

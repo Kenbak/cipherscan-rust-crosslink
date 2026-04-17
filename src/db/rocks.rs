@@ -284,6 +284,41 @@ impl ZebraState {
                     }
                 };
 
+                // Extract the fat pointer to BFT block. The first 32 bytes
+                // of vote_for_block_without_finalizer_public_key are the hash
+                // (in internal byte order) of the PoW block the signatures
+                // are voting on. Reverse for display hex. The `signatures`
+                // vec is the list of (pub_key, signature) pairs from the
+                // finalizers whose stake adds up to ≥2/3 quorum.
+                let fat_ptr = &header.fat_pointer_to_bft_block;
+                let vote_bytes = &fat_ptr.vote_for_block_without_finalizer_public_key;
+
+                let bft_referenced_hash = if vote_bytes.len() >= 32 {
+                    let mut rev = [0u8; 32];
+                    rev.copy_from_slice(&vote_bytes[..32]);
+                    rev.reverse();
+                    // If all zeros, it's the "null" fat pointer (not voting on anything)
+                    if rev.iter().all(|b| *b == 0) {
+                        None
+                    } else {
+                        Some(hex::encode(&rev))
+                    }
+                } else {
+                    None
+                };
+
+                let bft_signer_keys: Vec<String> = fat_ptr
+                    .signatures
+                    .iter()
+                    .map(|s| hex::encode(s.pub_key.0))
+                    .collect();
+
+                let bft_signature_count = if bft_referenced_hash.is_some() {
+                    Some(bft_signer_keys.len() as i32)
+                } else {
+                    None
+                };
+
                 Ok(ParsedBlockHeader {
                     version,
                     previous_block_hash: prev_hash,
@@ -294,6 +329,9 @@ impl ZebraState {
                     difficulty,
                     nonce,
                     solution,
+                    bft_referenced_hash,
+                    bft_signature_count,
+                    bft_signer_keys,
                 })
             }
             Ok(None) => Err(format!("Block header not found at height {}", height)),
@@ -668,6 +706,14 @@ pub struct ParsedBlockHeader {
     pub difficulty: f64,
     pub nonce: String,
     pub solution: String,
+
+    // Crosslink fat pointer to the BFT chain — extracted from the header's
+    // `fat_pointer_to_bft_block` field. Per ShieldedLabs: these are the
+    // finalizer signatures representing 67%+ of stake that voted on an
+    // earlier PoW block. None for non-crosslink transactions.
+    pub bft_referenced_hash: Option<String>,
+    pub bft_signature_count: Option<i32>,
+    pub bft_signer_keys: Vec<String>,
 }
 
 #[cfg(test)]

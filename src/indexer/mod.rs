@@ -595,6 +595,18 @@ impl Indexer {
                     _ => {}
                 }
             }
+
+            // Snapshot current finalizer roster
+            let roster = rpc.get_roster().await;
+            if !roster.is_empty() {
+                match self.postgres.upsert_finalizers(&roster, rpc_tip).await {
+                    Ok(n) if n > 0 => {
+                        println!("   👥 Finalizers updated: {} rows ({} in roster)", n, roster.len());
+                    }
+                    Err(e) => println!("   ⚠️ Finalizer update error: {}", e),
+                    _ => {}
+                }
+            }
         }
     }
 }

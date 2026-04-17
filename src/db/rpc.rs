@@ -204,4 +204,31 @@ impl ZebraRpc {
             Err(_) => None,
         }
     }
+
+    /// Get the current Crosslink finalizer roster (pub_key + voting power in zats).
+    /// Returns empty vec if the RPC fails.
+    pub async fn get_roster(&self) -> Vec<(String, u64)> {
+        let result: Result<serde_json::Value, _> =
+            self.call("get_tfl_roster_zats", vec![]).await;
+        let Ok(val) = result else { return Vec::new(); };
+        let Some(arr) = val.as_array() else { return Vec::new(); };
+
+        arr.iter()
+            .filter_map(|m| {
+                let identity = m
+                    .get("identity")
+                    .or_else(|| m.get("pub_key"))
+                    .or_else(|| m.get("public_key"))
+                    .and_then(|v| v.as_str())?
+                    .to_string();
+                let stake = m
+                    .get("stake_zats")
+                    .or_else(|| m.get("stake"))
+                    .or_else(|| m.get("voting_power"))
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(0);
+                Some((identity, stake))
+            })
+            .collect()
+    }
 }

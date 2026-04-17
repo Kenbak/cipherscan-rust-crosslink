@@ -748,4 +748,67 @@ impl PostgresWriter {
         }
         Ok(total)
     }
+
+    /// Snapshot the Crosslink finalizer roster to the `finalizers` table.
+    /// Finalizers present in the roster are upserted; those previously-seen but
+    /// absent from this snapshot are marked is_active=false. Returns number of rows changed.
+    pub async fn upsert_finalizers(
+        &self,
+        roster: &[(String, u64)],
+        current_height: u32,
+    ) -> Result<u64, sqlx::Error> {
+        if roster.is_empty() {
+            return Ok(0);
+        }
+
+        let mut db_tx = self.pool.begin().await?;
+        let mut changed: u64 = 0;
+
+        for (pub_key, voting_power) in roster {
+            let res = sqlx::query(
+                r#"
+                INSERT INTO finalizers (pub_key, voting_power_zats, first_seen_height, last_seen_height, is_active, updated_at)
+                VALUES ($1, $2, $3, $3, true, NOW())
+                ON CONFLICT (pub_key) DO UPDATE SET
+                    voting_power_zats = EXCLUDED.voting_power_zats,
+                    last_seen_height = EXCLUDED.last_seen_height,
+                    is_active = true,
+                    updated_at = NOW()
+                WHERE
+                    finalizers.voting_power_zats IS DISTINCT FROM EXCLUDED.voting_power_zats
+                    OR finalizers.is_active IS DISTINCT FROM true
+                "#,
+            )
+            .bind(pub_key)
+            .bind(*voting_power as i64)
+            .bind(current_height as i64)
+            .execute(&mut *db_tx)
+            .await?;
+            changed += res.rows_affected();
+        }
+
+        // Mark finalizers that are no longer in the roster as inactive
+        let active_keys: Vec<&str> = roster.iter().map(|(k, _)| k.as_str()).collect();
+        let deactivated = sqlx::query(
+            r#"
+            UPDATE finalizers SET is_active = false, updated_at = NOW()
+            WHERE is_active = true AND pub_key <> ALL($1)
+            "#,
+        )
+        .bind(&active_keys)
+        .execute(&mut *db_tx)
+        .await?;
+        changed += deactivated.rows_affected();
+
+        db_tx.commit().await?;
+
+        if changed > 0 {
+            tracing::info!(
+                roster_size = roster.len(),
+                rows_changed = changed,
+                "Updated finalizers roster"
+            );
+        }
+        Ok(changed)
+    }
 }

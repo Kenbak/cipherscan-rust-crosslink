@@ -171,6 +171,9 @@ impl TransactionParser {
             None
         };
 
+        let (staking_action_type, staking_bond_key, staking_delegatee, staking_amount_zats) =
+            Self::extract_staking_action(&tx);
+
         Ok(Transaction {
             txid,
             block_height,
@@ -190,9 +193,58 @@ impl TransactionParser {
             sapling_value_balance,
             orchard_value_balance,
             fee,
+            staking_action_type,
+            staking_bond_key,
+            staking_delegatee,
+            staking_amount_zats,
             vin,
             vout,
         })
+    }
+
+    /// Extract Crosslink staking action (VCrosslink txs only).
+    /// Returns (kind_name, bond_key_hex, target_finalizer_hex, amount_zats).
+    /// Skips Null actions — treats them as "not a staking tx".
+    fn extract_staking_action(
+        tx: &ZebraTransaction,
+    ) -> (Option<String>, Option<String>, Option<String>, Option<u64>) {
+        use zcash_primitives::transaction::StakingActionKind;
+
+        let Some(action) = tx.staking_action() else {
+            return (None, None, None, None);
+        };
+
+        let kind_name = match action.kind {
+            StakingActionKind::Null => return (None, None, None, None),
+            StakingActionKind::CreateNewDelegationBond => "CreateNewDelegationBond",
+            StakingActionKind::BeginDelegationUnbonding => "BeginDelegationUnbonding",
+            StakingActionKind::WithdrawDelegationBond => "WithdrawDelegationBond",
+            StakingActionKind::RetargetDelegationBond => "RetargetDelegationBond",
+            StakingActionKind::RegisterFinalizer => "RegisterFinalizer",
+            StakingActionKind::ConvertFinalizerRewardToDelegationBond => {
+                "ConvertFinalizerRewardToDelegationBond"
+            }
+            StakingActionKind::UpdateFinalizerKey => "UpdateFinalizerKey",
+        };
+
+        // arg32_0 is the unique pubkey identifying the bond (all actions that touch a bond use it)
+        let bond_key = Some(hex::encode(action.arg32_0));
+
+        // arg32_2 is the target finalizer (only for CreateNewDelegationBond + RetargetDelegationBond)
+        let delegatee = match action.kind {
+            StakingActionKind::CreateNewDelegationBond
+            | StakingActionKind::RetargetDelegationBond => Some(hex::encode(action.arg32_2)),
+            _ => None,
+        };
+
+        // amount_zats is set for CreateNewDelegationBond and WithdrawDelegationBond
+        let amount = match action.kind {
+            StakingActionKind::CreateNewDelegationBond
+            | StakingActionKind::WithdrawDelegationBond => Some(action.amount_zats),
+            _ => None,
+        };
+
+        (Some(kind_name.to_string()), bond_key, delegatee, amount)
     }
 
     /// Parse output script to get address and type

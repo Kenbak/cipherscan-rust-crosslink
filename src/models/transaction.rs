@@ -32,6 +32,12 @@ pub struct Transaction {
     // Computed
     pub fee: Option<i64>,
 
+    // Crosslink staking action (only set for VCrosslink txs with a staking action)
+    pub staking_action_type: Option<String>,
+    pub staking_bond_key: Option<String>,
+    pub staking_delegatee: Option<String>,
+    pub staking_amount_zats: Option<u64>,
+
     // Detailed data (optional, for API responses)
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub vin: Vec<TransparentInput>,

@@ -459,6 +459,18 @@ impl Indexer {
         use tokio::time::Duration;
         use tonic::Streaming;
 
+        // Divergence tracking thresholds
+        const DIVERGENCE_WARNING: u32 = 20;
+        const DIVERGENCE_CRITICAL: u32 = 100;
+        const DIVERGENCE_RECOVERED: u32 = 10;
+
+        // Resume a previously-open divergence event if the indexer restarted mid-incident
+        let mut active_divergence = self
+            .postgres
+            .get_open_divergence_id()
+            .await
+            .unwrap_or(None);
+
         println!("🔴 Starting live indexer...");
         println!("   Press Ctrl+C to stop");
         println!("────────────────────────────────────────────────────────────");
@@ -585,27 +597,68 @@ impl Indexer {
 
             // Update finality status from Crosslink TFL after each cycle
             if let Some(finalized_h) = rpc.get_finalized_height().await {
-                // Health check: warn loudly if we're diverging from the live chain.
-                // Per ShieldedLabs, a sidechain >100 blocks corrupts the finalizer
-                // roster and requires a full Zebra cache wipe to recover.
+                // Track chain divergence. Per ShieldedLabs, a sidechain >100 blocks
+                // corrupts the finalizer roster and requires a Zebra cache wipe.
+                // We record the start/peak/end of every divergence so we can spot
+                // whether they cluster at specific heights or times after resets.
                 let gap = rpc_tip.saturating_sub(finalized_h);
-                if gap > 100 {
-                    println!(
-                        "   🚨 FINALITY GAP CRITICAL: {} blocks (tip {} vs finalized {}). \
-                         Node may be on a sidechain; a Zebra cache wipe may be required.",
-                        gap, rpc_tip, finalized_h
-                    );
-                    tracing::error!(
-                        gap,
-                        rpc_tip,
-                        finalized_h,
-                        "Finality gap exceeded 100 blocks — possible sidechain divergence"
-                    );
-                } else if gap > 20 {
-                    println!(
-                        "   ⚠️ Finality gap growing: {} blocks (tip {} vs finalized {})",
-                        gap, rpc_tip, finalized_h
-                    );
+
+                if gap >= DIVERGENCE_WARNING {
+                    let severity = if gap >= DIVERGENCE_CRITICAL { "critical" } else { "warning" };
+
+                    if severity == "critical" {
+                        println!(
+                            "   🚨 FINALITY GAP CRITICAL: {} blocks (tip {} vs finalized {}). \
+                             Node may be on a sidechain; a Zebra cache wipe may be required.",
+                            gap, rpc_tip, finalized_h
+                        );
+                    } else {
+                        println!(
+                            "   ⚠️ Finality gap growing: {} blocks (tip {} vs finalized {})",
+                            gap, rpc_tip, finalized_h
+                        );
+                    }
+
+                    match active_divergence {
+                        None => {
+                            // New divergence — record the starting heights so we can
+                            // tell later whether we always diverge near the same block.
+                            match self
+                                .postgres
+                                .open_divergence_event(rpc_tip, finalized_h, severity)
+                                .await
+                            {
+                                Ok(id) => active_divergence = Some(id),
+                                Err(e) => println!("   ⚠️ Divergence open error: {}", e),
+                            }
+                        }
+                        Some(id) => {
+                            // Update peak and possibly bump severity
+                            if let Err(e) = self
+                                .postgres
+                                .update_divergence_peak(id, rpc_tip, finalized_h, severity)
+                                .await
+                            {
+                                println!("   ⚠️ Divergence update error: {}", e);
+                            }
+                        }
+                    }
+                } else if gap <= DIVERGENCE_RECOVERED {
+                    // Back in sync — close any currently-open divergence event
+                    if let Some(id) = active_divergence.take() {
+                        if let Err(e) = self
+                            .postgres
+                            .close_divergence_event(id, rpc_tip, finalized_h)
+                            .await
+                        {
+                            println!("   ⚠️ Divergence close error: {}", e);
+                        } else {
+                            println!(
+                                "   ✅ Recovered from divergence (gap={}, tip={}, finalized={})",
+                                gap, rpc_tip, finalized_h
+                            );
+                        }
+                    }
                 }
 
                 match self.postgres.update_finality_status(finalized_h).await {

@@ -749,6 +749,113 @@ impl PostgresWriter {
         Ok(total)
     }
 
+    /// Open a new divergence event. Returns the new row id.
+    pub async fn open_divergence_event(
+        &self,
+        tip_height: u32,
+        finalized_height: u32,
+        severity: &str,
+    ) -> Result<i64, sqlx::Error> {
+        let gap = tip_height.saturating_sub(finalized_height) as i32;
+        let row: (i64,) = sqlx::query_as(
+            r#"
+            INSERT INTO divergence_events (
+                start_tip_height, start_finalized_height, start_gap,
+                peak_gap, peak_tip_height, severity
+            ) VALUES ($1, $2, $3, $3, $1, $4)
+            RETURNING id
+            "#,
+        )
+        .bind(tip_height as i64)
+        .bind(finalized_height as i64)
+        .bind(gap)
+        .bind(severity)
+        .fetch_one(&self.pool)
+        .await?;
+
+        tracing::error!(
+            event_id = row.0,
+            tip_height,
+            finalized_height,
+            gap,
+            severity,
+            "Opened divergence event"
+        );
+        Ok(row.0)
+    }
+
+    /// Update peak gap/height and possibly bump severity on an open event.
+    pub async fn update_divergence_peak(
+        &self,
+        event_id: i64,
+        tip_height: u32,
+        finalized_height: u32,
+        severity: &str,
+    ) -> Result<(), sqlx::Error> {
+        let gap = tip_height.saturating_sub(finalized_height) as i32;
+        sqlx::query(
+            r#"
+            UPDATE divergence_events
+            SET peak_gap = GREATEST(peak_gap, $2),
+                peak_tip_height = CASE WHEN $2 > peak_gap THEN $3 ELSE peak_tip_height END,
+                severity = CASE
+                    WHEN $4 = 'critical' THEN 'critical'
+                    WHEN severity = 'critical' THEN severity
+                    ELSE $4
+                END
+            WHERE id = $1
+            "#,
+        )
+        .bind(event_id)
+        .bind(gap)
+        .bind(tip_height as i64)
+        .bind(severity)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    /// Close the currently-open divergence event (if any).
+    pub async fn close_divergence_event(
+        &self,
+        event_id: i64,
+        tip_height: u32,
+        finalized_height: u32,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            r#"
+            UPDATE divergence_events
+            SET end_time = NOW(),
+                end_tip_height = $2,
+                end_finalized_height = $3
+            WHERE id = $1 AND end_time IS NULL
+            "#,
+        )
+        .bind(event_id)
+        .bind(tip_height as i64)
+        .bind(finalized_height as i64)
+        .execute(&self.pool)
+        .await?;
+
+        tracing::info!(
+            event_id,
+            tip_height,
+            finalized_height,
+            "Closed divergence event"
+        );
+        Ok(())
+    }
+
+    /// Get the id of the currently-open divergence event (if any), so the indexer
+    /// can recover state after a restart.
+    pub async fn get_open_divergence_id(&self) -> Result<Option<i64>, sqlx::Error> {
+        let row: Option<(i64,)> =
+            sqlx::query_as("SELECT id FROM divergence_events WHERE end_time IS NULL ORDER BY id DESC LIMIT 1")
+                .fetch_optional(&self.pool)
+                .await?;
+        Ok(row.map(|(id,)| id))
+    }
+
     /// Snapshot the Crosslink finalizer roster to the `finalizers` table.
     /// Finalizers present in the roster are upserted; those previously-seen but
     /// absent from this snapshot are marked is_active=false. Returns number of rows changed.

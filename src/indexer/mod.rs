@@ -568,6 +568,9 @@ impl Indexer {
                 );
 
                 let mut last_success = last_indexed;
+                let mut height = last_indexed + 1;
+                let mut not_found_retries: u32 = 0;
+                const MAX_NOT_FOUND_RETRIES: u32 = 10;
 
                 // Ask RocksDB secondary to pick up blocks zebrad has just
                 // written. Required before we can read the latest headers.
@@ -575,11 +578,7 @@ impl Indexer {
                     let _ = zebra.try_catch_up();
                 }
 
-                for height in (last_indexed + 1)..=rpc_tip {
-                    // Prefer RocksDB path — it's the only path that can
-                    // extract `fat_pointer_to_bft_block` from the header
-                    // (JSON-RPC doesn't expose that field). Falls back to
-                    // RPC-only mode if RocksDB is unavailable.
+                while height <= rpc_tip {
                     let result = if self.zebra.is_some() {
                         self.index_block(height).await
                     } else {
@@ -592,11 +591,20 @@ impl Indexer {
                                 height, tx_count, flow_count
                             );
                             last_success = height;
+                            height += 1;
+                            not_found_retries = 0;
                             self.record_success_heartbeat().await?;
                             if failure_state_active {
                                 self.clear_failure_state().await?;
                                 failure_state_active = false;
                             }
+                        }
+                        Err(e) if e.contains("not found") && not_found_retries < MAX_NOT_FOUND_RETRIES => {
+                            not_found_retries += 1;
+                            if let Some(zebra) = self.zebra.as_ref() {
+                                let _ = zebra.try_catch_up();
+                            }
+                            tokio::time::sleep(Duration::from_secs(3)).await;
                         }
                         Err(e) => {
                             self.record_failure("live", height, &e).await?;

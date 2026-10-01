@@ -105,6 +105,10 @@ mod tests {
             fee: Some(1000),
             vin: vec![],
             vout: vec![],
+            staking_action_type: None,
+            staking_bond_key: None,
+            staking_delegatee: None,
+            staking_amount_zats: None,
         }
     }
 

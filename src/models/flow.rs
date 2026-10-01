@@ -177,6 +177,10 @@ mod tests {
             fee: Some(10000),
             vin: vec![],
             vout: vec![],
+            staking_action_type: None,
+            staking_bond_key: None,
+            staking_delegatee: None,
+            staking_amount_zats: None,
         };
 
         let flows = ShieldedFlow::from_transaction(&tx);
@@ -206,6 +210,10 @@ mod tests {
             fee: Some(10000),
             vin: vec![],
             vout: vec![],
+            staking_action_type: None,
+            staking_bond_key: None,
+            staking_delegatee: None,
+            staking_amount_zats: None,
         };
 
         let flows = ShieldedFlow::from_transaction(&tx);

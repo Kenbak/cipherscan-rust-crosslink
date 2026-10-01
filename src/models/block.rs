@@ -91,16 +91,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_genesis_hash() {
-        // Genesis block hash should match known value
-        let hash = hex::decode("00040fe8ec8471911baa1db1266ea15dd06b4a8a5c453883c000b031973dce08")
-            .unwrap();
-        let mut arr = [0u8; 32];
-        arr.copy_from_slice(&hash);
-
-        // After reversing, should be the canonical genesis hash
-        arr.reverse();
-        let display_hash = hex::encode(&arr);
-        assert!(display_hash.starts_with("00"));
+    fn test_stored_hash_uses_display_byte_order() {
+        // The existing hash fixture in stored little-endian byte order. Test
+        // the model conversion, rather than reversing an already-display hash
+        // and making the old (incorrect) starts_with("00") assertion.
+        let hash = hex::decode("08ce3d9731b000c08338455c8a4a6bd05da16e26b11daa1b917184ece80f0400").unwrap();
+        let stored: [u8; 32] = hash.try_into().unwrap();
+        let block = Block::from_raw(0, stored, &[0u8; 140]).unwrap();
+        assert_eq!(block.hash, "00040fe8ec8471911baa1db1266ea15dd06b4a8a5c453883c000b031973dce08");
     }
 }

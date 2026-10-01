@@ -327,6 +327,37 @@ impl PostgresWriter {
         let mut db_tx = self.pool.begin().await?;
         let mut count = 0u64;
 
+        // Recovery may replay up to a checkpoint boundary after a crash.
+        // Address balances below are additive, so an UPSERT alone is not
+        // idempotent. Serialize writers at a height and skip identical blocks;
+        // refuse a changed hash until an explicit chain repair is performed.
+        sqlx::query("SELECT pg_advisory_xact_lock($1)")
+            .bind(i64::from(height))
+            .execute(&mut *db_tx)
+            .await?;
+        let existing: Option<(String,)> = sqlx::query_as("SELECT hash FROM blocks WHERE height = $1")
+            .bind(height as i64)
+            .fetch_optional(&mut *db_tx)
+            .await?;
+        if let Some((existing_hash,)) = existing {
+            if existing_hash != hash {
+                return Err(sqlx::Error::Protocol(format!("Block hash changed at height {height}; explicit chain repair required")));
+            }
+            db_tx.commit().await?;
+            return Ok((0, 0));
+        }
+        if height > 0 {
+            let previous: Option<(String,)> = sqlx::query_as("SELECT hash FROM blocks WHERE height = $1")
+                .bind(i64::from(height - 1))
+                .fetch_optional(&mut *db_tx)
+                .await?;
+            if let Some((previous_hash,)) = previous {
+                if !header.previous_block_hash.is_empty() && previous_hash != header.previous_block_hash {
+                    return Err(sqlx::Error::Protocol(format!("Chain ancestry changed before height {height}; explicit chain repair required")));
+                }
+            }
+        }
+
         // Calculate block-level aggregates
         let total_fees: i64 = transactions.iter().filter_map(|tx| tx.fee).sum();
 

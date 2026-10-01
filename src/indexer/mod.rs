@@ -337,6 +337,16 @@ impl Indexer {
             }
         }
 
+        // Live mode uses a different checkpoint key. Handoff only after the
+        // entire backfill succeeded, without moving a newer live cursor back.
+        if let Some(height) = last_successful_height {
+            let live = self.postgres.get_checkpoint().await
+                .map_err(|e| format!("Checkpoint error: {e}"))?;
+            if live.map_or(true, |current| height > current) {
+                self.postgres.update_checkpoint("last_indexed_height", &height.to_string()).await
+                    .map_err(|e| format!("Checkpoint error: {e}"))?;
+            }
+        }
         Ok(())
     }
 

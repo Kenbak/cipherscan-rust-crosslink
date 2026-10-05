@@ -387,7 +387,7 @@ CREATE TABLE public.shielded_flows (
     migration_from_pool text,
     migration_to_pool text,
     CONSTRAINT shielded_flows_flow_type_check CHECK ((flow_type = ANY (ARRAY['shield'::text, 'deshield'::text]))),
-    CONSTRAINT shielded_flows_pool_check CHECK ((pool = ANY (ARRAY['sapling'::text, 'orchard'::text, 'sprout'::text, 'mixed'::text])))
+    CONSTRAINT shielded_flows_pool_check CHECK ((pool = ANY (ARRAY['sapling'::text, 'orchard'::text, 'ironwood'::text, 'sprout'::text, 'mixed'::text])))
 );
 
 
@@ -708,6 +708,9 @@ CREATE TABLE public.transactions (
     orchard_actions integer DEFAULT 0,
     value_balance bigint DEFAULT 0,
     value_balance_sapling bigint DEFAULT 0,
+    ironwood_actions integer,
+    value_balance_ironwood bigint,
+    has_ironwood boolean,
     value_balance_orchard bigint DEFAULT 0,
     binding_sig text,
     binding_sig_sapling text,

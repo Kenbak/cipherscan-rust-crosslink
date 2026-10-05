@@ -51,6 +51,7 @@ impl TransactionParser {
             V3 { expiry_height, .. } => (3, 0, Some(expiry_height.0)),
             V4 { expiry_height, .. } => (4, 0, Some(expiry_height.0)),
             V5 { expiry_height, .. } => (5, 0, Some(expiry_height.0)),
+            V6 { expiry_height, .. } => (6, 0, Some(expiry_height.0)),
             VCrosslink { expiry_height, .. } => (7, 0, Some(expiry_height.0)),
         };
 
@@ -124,13 +125,22 @@ impl TransactionParser {
                     .unwrap_or((0, 0));
                 (js_count as u16, spends as u16, outputs as u16, 0)
             }
-            V5 { sapling_shielded_data, orchard_shielded_data, .. }
-            | VCrosslink { sapling_shielded_data, orchard_shielded_data, .. } => {
+            V5 { sapling_shielded_data, orchard_shielded_data, .. } => {
                 let (spends, outputs) = sapling_shielded_data.as_ref()
                     .map(|d| (d.spends().count(), d.outputs().count()))
                     .unwrap_or((0, 0));
                 let actions = orchard_shielded_data.as_ref()
                     .map(|d| d.actions.len())
+                    .unwrap_or(0);
+                (0, spends as u16, outputs as u16, actions as u16)
+            }
+            V6 { sapling_shielded_data, orchard_shielded_data, .. }
+            | VCrosslink { sapling_shielded_data, orchard_shielded_data, .. } => {
+                let (spends, outputs) = sapling_shielded_data.as_ref()
+                    .map(|d| (d.spends().count(), d.outputs().count()))
+                    .unwrap_or((0, 0));
+                let actions = orchard_shielded_data.as_ref()
+                    .map(|d| d.data().actions.len())
                     .unwrap_or(0);
                 (0, spends as u16, outputs as u16, actions as u16)
             }
@@ -144,6 +154,7 @@ impl TransactionParser {
                     .unwrap_or(0)
             }
             V5 { sapling_shielded_data, .. }
+            | V6 { sapling_shielded_data, .. }
             | VCrosslink { sapling_shielded_data, .. } => {
                 sapling_shielded_data.as_ref()
                     .map(|d| i64::from(d.value_balance))
@@ -153,13 +164,41 @@ impl TransactionParser {
         };
 
         let orchard_value_balance: i64 = match &tx {
-            V5 { orchard_shielded_data, .. }
-            | VCrosslink { orchard_shielded_data, .. } => {
+            V5 { orchard_shielded_data, .. } => {
                 orchard_shielded_data.as_ref()
                     .map(|d| i64::from(d.value_balance))
                     .unwrap_or(0)
             }
+            V6 { orchard_shielded_data, .. }
+            | VCrosslink { orchard_shielded_data, .. } => {
+                orchard_shielded_data.as_ref()
+                    .map(|d| i64::from(d.data().value_balance))
+                    .unwrap_or(0)
+            }
             _ => 0,
+        };
+
+        let (ironwood_actions, ironwood_value_balance) = match &tx {
+            V6 { ironwood_shielded_data, .. } | VCrosslink { ironwood_shielded_data, .. } => {
+                ironwood_shielded_data.as_ref()
+                    .map(|d| (d.data().actions.len() as u16, i64::from(d.data().value_balance)))
+                    .unwrap_or((0, 0))
+            }
+            _ => (0, 0),
+        };
+        // These are the native v14 staking pool signs: create locks value,
+        // withdraw releases value, reward conversion has net zero balance.
+        let staking_value_balance = match tx.staking_action() {
+            Some(action) => {
+                use zcash_primitives::transaction::StakingActionKind;
+                let amount = i64::try_from(action.amount_zats()).map_err(|_| "staking amount exceeds signed zatoshi range")?;
+                match action.kind() {
+                    StakingActionKind::CreateNewDelegationBond => -amount,
+                    StakingActionKind::WithdrawDelegationBond => amount,
+                    _ => 0,
+                }
+            }
+            None => 0,
         };
 
         // Calculate fee (for non-coinbase)
@@ -190,8 +229,11 @@ impl TransactionParser {
             sapling_spends,
             sapling_outputs,
             orchard_actions,
+            ironwood_actions,
             sapling_value_balance,
             orchard_value_balance,
+            ironwood_value_balance,
+            staking_value_balance,
             fee,
             staking_action_type,
             staking_bond_key,
@@ -208,39 +250,43 @@ impl TransactionParser {
     fn extract_staking_action(
         tx: &ZebraTransaction,
     ) -> (Option<String>, Option<String>, Option<String>, Option<u64>) {
-        use zcash_primitives::transaction::StakingActionKind;
-
         let Some(action) = tx.staking_action() else {
             return (None, None, None, None);
         };
+        Self::staking_action_fields(action)
+    }
 
-        let kind_name = match action.kind {
+    fn staking_action_fields(
+        action: &zcash_primitives::transaction::StakingAction,
+    ) -> (Option<String>, Option<String>, Option<String>, Option<u64>) {
+        use zcash_primitives::transaction::StakingActionKind;
+        let kind_name = match action.kind() {
             StakingActionKind::Null => return (None, None, None, None),
             StakingActionKind::CreateNewDelegationBond => "CreateNewDelegationBond",
             StakingActionKind::BeginDelegationUnbonding => "BeginDelegationUnbonding",
             StakingActionKind::WithdrawDelegationBond => "WithdrawDelegationBond",
             StakingActionKind::RetargetDelegationBond => "RetargetDelegationBond",
-            StakingActionKind::RegisterFinalizer => "RegisterFinalizer",
             StakingActionKind::ConvertFinalizerRewardToDelegationBond => {
                 "ConvertFinalizerRewardToDelegationBond"
             }
-            StakingActionKind::UpdateFinalizerKey => "UpdateFinalizerKey",
         };
 
-        // arg32_0 is the unique pubkey identifying the bond (all actions that touch a bond use it)
-        let bond_key = Some(hex::encode(action.arg32_0));
+        // v14 carries a typed action; every variant exposes its unique bond key.
+        let bond_key = Some(hex::encode(action.bond_key()));
 
-        // arg32_2 is the target finalizer (only for CreateNewDelegationBond + RetargetDelegationBond)
-        let delegatee = match action.kind {
+        // Create, retarget and reward conversion identify the receiving finalizer.
+        let delegatee = match action.kind() {
             StakingActionKind::CreateNewDelegationBond
-            | StakingActionKind::RetargetDelegationBond => Some(hex::encode(action.arg32_2)),
+            | StakingActionKind::RetargetDelegationBond
+            | StakingActionKind::ConvertFinalizerRewardToDelegationBond => Some(hex::encode(action.target_finalizer_pk())),
             _ => None,
         };
 
-        // amount_zats is set for CreateNewDelegationBond and WithdrawDelegationBond
-        let amount = match action.kind {
+        // Preserve the exact amount for every action that carries one, including conversion.
+        let amount = match action.kind() {
             StakingActionKind::CreateNewDelegationBond
-            | StakingActionKind::WithdrawDelegationBond => Some(action.amount_zats),
+            | StakingActionKind::WithdrawDelegationBond
+            | StakingActionKind::ConvertFinalizerRewardToDelegationBond => Some(action.amount_zats()),
             _ => None,
         };
 
@@ -348,6 +394,54 @@ impl TransactionParser {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn v14_crosslink_wire_transaction_round_trips_through_native_parser() {
+        use zebra_chain::serialization::ZcashSerialize;
+        let tx = ZebraTransaction::VCrosslink {
+            network_upgrade: zebra_chain::parameters::NetworkUpgrade::Nu6_3,
+            lock_time: zebra_chain::transaction::LockTime::Height(zebra_chain::block::Height(0)),
+            expiry_height: zebra_chain::block::Height(40_000),
+            inputs: vec![], outputs: vec![], sapling_shielded_data: None,
+            orchard_shielded_data: None, ironwood_shielded_data: None,
+            staking_action: Some(zcash_primitives::transaction::StakingAction::BeginDelegationUnbonding {
+                unique_pubkey: [4; 32], signature: [0; 64],
+            }),
+        };
+        let bytes = tx.zcash_serialize_to_vec().unwrap();
+        let parsed = TransactionParser::parse(&bytes, 31_104, "fixture", Network::Crosslink).unwrap();
+        assert_eq!(parsed.version, 7);
+        assert_eq!(parsed.staking_bond_key, Some(hex::encode([4; 32])));
+        assert_eq!(parsed.staking_action_type.as_deref(), Some("BeginDelegationUnbonding"));
+        assert_eq!(parsed.staking_value_balance, 0);
+        assert_eq!(parsed.ironwood_actions, 0);
+    }
+
+    #[test]
+    fn v14_reward_conversion_preserves_bond_target_and_exact_amount() {
+        let action = zcash_primitives::transaction::StakingAction::ConvertFinalizerRewardToDelegationBond {
+            unique_pubkey: [1; 32], signature: [0; 64], bond_salt: [2; 32],
+            this_finalizer: [3; 32], amount_zats: 2_000_000_000_000_001,
+            finalizer_signature: [0; 64],
+        };
+        let (kind, bond, target, amount) = TransactionParser::staking_action_fields(&action);
+        assert_eq!(kind.as_deref(), Some("ConvertFinalizerRewardToDelegationBond"));
+        assert_eq!(bond, Some(hex::encode([1; 32])));
+        assert_eq!(target, Some(hex::encode([3; 32])));
+        assert_eq!(amount, Some(2_000_000_000_000_001));
+    }
+
+    #[test]
+    fn v14_unbonding_does_not_invent_a_target_or_amount() {
+        let action = zcash_primitives::transaction::StakingAction::BeginDelegationUnbonding {
+            unique_pubkey: [4; 32], signature: [0; 64],
+        };
+        let (kind, bond, target, amount) = TransactionParser::staking_action_fields(&action);
+        assert_eq!(kind.as_deref(), Some("BeginDelegationUnbonding"));
+        assert_eq!(bond, Some(hex::encode([4; 32])));
+        assert_eq!(target, None);
+        assert_eq!(amount, None);
+    }
 
     #[test]
     fn test_address_encoding_mainnet() {

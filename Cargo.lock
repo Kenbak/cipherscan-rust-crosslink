@@ -20,7 +20,7 @@ checksum = "b169f7a6d4742236a0a00c541b845991d0ac43e546831af1249753ab4c3aa3a0"
 dependencies = [
  "cfg-if",
  "cipher",
- "cpufeatures",
+ "cpufeatures 0.2.17",
 ]
 
 [[package]]
@@ -388,6 +388,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "blake3"
+version = "1.8.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4d2d5991425dfd0785aed03aedcf0b321d61975c9b5b3689c774a2610ae0b51e"
+dependencies = [
+ "arrayref",
+ "arrayvec",
+ "cc",
+ "cfg-if",
+ "constant_time_eq",
+ "cpufeatures 0.3.0",
+]
+
+[[package]]
 name = "block-buffer"
 version = "0.10.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -424,6 +438,7 @@ version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "09dc0086e469182132244e9b8d313a0742e1132da43a08c24b9dd3c18e0faf3a"
 dependencies = [
+ "serde",
  "thiserror 2.0.18",
 ]
 
@@ -515,7 +530,7 @@ checksum = "c3613f74bd2eac03dad61bd53dbe620703d4371614fe0bc3b9f04dd36fe4e818"
 dependencies = [
  "cfg-if",
  "cipher",
- "cpufeatures",
+ "cpufeatures 0.2.17",
 ]
 
 [[package]]
@@ -557,7 +572,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "cipherscan-indexer"
+name = "cipherscan-indexer-crosslink"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
@@ -579,6 +594,7 @@ dependencies = [
  "tonic-build",
  "tracing",
  "tracing-subscriber",
+ "zcash_primitives",
  "zebra-chain",
 ]
 
@@ -688,19 +704,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "773648b94d0e5d620f64f280777445740e61fe701025087ec8b57f45c791888b"
 
 [[package]]
-name = "core2"
-version = "0.3.3"
+name = "corez"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "239fa3ae9b63c2dc74bd3fa852d4792b8b305ae64eeede946265b6af62f1fff3"
-dependencies = [
- "memchr",
-]
+checksum = "4df6f98652d30167eaeea34d77b730e07c8caba6df17bd4551842b9b8da01deb"
 
 [[package]]
 name = "cpufeatures"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "59ed5838eebb26a2bb2e58f6d5b5316989ae9d08bab10e0e6d103e656d1b0280"
+dependencies = [
+ "libc",
+]
+
+[[package]]
+name = "cpufeatures"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8b2a41393f66f16b0823bb79094d54ac5fbd34ab292ddafb9a0456ac9f87d201"
 dependencies = [
  "libc",
 ]
@@ -795,7 +817,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97fb8b7c4503de7d6ae7b42ab72a5a59857b4c937ec27a3d4539dba95b5ab2be"
 dependencies = [
  "cfg-if",
- "cpufeatures",
+ "cpufeatures 0.2.17",
  "curve25519-dalek-derive",
  "digest 0.10.7",
  "fiat-crypto",
@@ -972,13 +994,13 @@ dependencies = [
 
 [[package]]
 name = "ed25519-zebra"
-version = "4.1.0"
+version = "4.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0017d969298eec91e3db7a2985a8cab4df6341d86e6f3a6f5878b13fb7846bc9"
+checksum = "775765289f7c6336c18d3d66127527820dd45ffd9eb3b6b8ee4708590e6c20f5"
 dependencies = [
  "curve25519-dalek",
  "ed25519",
- "hashbrown 0.15.5",
+ "hashbrown 0.16.1",
  "pkcs8",
  "rand_core",
  "serde",
@@ -1007,13 +1029,22 @@ dependencies = [
 
 [[package]]
 name = "equihash"
-version = "0.2.2"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ca4f333d4ccc9d23c06593733673026efa71a332e028b00f12cf427b9677dce9"
+checksum = "306286e8dcc39ab3dfceb74c792ce8baffdab90591321d3ffaae64829734c37f"
 dependencies = [
  "blake2b_simd",
- "core2",
+ "corez",
  "document-features",
+]
+
+[[package]]
+name = "equihash"
+version = "0.3.0"
+source = "git+https://github.com/ShieldedLabs/crosslink_monolith.git?rev=eca0207c19469df3abd9da8290bf0aea94da8642#eca0207c19469df3abd9da8290bf0aea94da8642"
+dependencies = [
+ "blake2b_simd",
+ "corez",
 ]
 
 [[package]]
@@ -1052,8 +1083,7 @@ checksum = "0206175f82b8d6bf6652ff7d71a1e27fd2e4efde587fd368662814d6ec1d9ce0"
 [[package]]
 name = "f4jumble"
 version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d42773cb15447644d170be20231a3268600e0c4cea8987d013b93ac973d3cf7"
+source = "git+https://github.com/ShieldedLabs/crosslink_monolith.git?rev=eca0207c19469df3abd9da8290bf0aea94da8642#eca0207c19469df3abd9da8290bf0aea94da8642"
 dependencies = [
  "blake2b_simd",
 ]
@@ -1124,9 +1154,9 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 
 [[package]]
 name = "foldhash"
-version = "0.1.5"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d9c4f5dac5e15c24eb999c26181a6ca40b39fe946cbe4c263c7209467bc83af2"
+checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
 
 [[package]]
 name = "foreign-types"
@@ -1174,9 +1204,9 @@ checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 
 [[package]]
 name = "futures"
-version = "0.3.31"
+version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "65bc07b1a8bc7c85c5f2e110c476c7389b4554ba72af57d8445ea63a576b0876"
+checksum = "9a31d2a3fbaaeb2af2368bbdd904aa8e812d3c04a1ee10d3171f52d556e5d0a3"
 dependencies = [
  "futures-channel",
  "futures-core",
@@ -1189,9 +1219,9 @@ dependencies = [
 
 [[package]]
 name = "futures-channel"
-version = "0.3.31"
+version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2dff15bf788c671c1934e366d07e30c1814a8ef514e1af724a602e8a2fbe1b10"
+checksum = "b1f9e3d69d39e4862ffed03ed071a76f9a13ba1d9109d355b0f0aa6b15e393c4"
 dependencies = [
  "futures-core",
  "futures-sink",
@@ -1199,15 +1229,15 @@ dependencies = [
 
 [[package]]
 name = "futures-core"
-version = "0.3.31"
+version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "05f29059c0c2090612e8d742178b0580d2dc940c837851ad723096f87af6663e"
+checksum = "92d699e522242e69e3003b94ecc1f960f3a5e015aa7c5d7486e65ad01dd94f5e"
 
 [[package]]
 name = "futures-executor"
-version = "0.3.31"
+version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e28d1d997f585e54aebc3f97d39e72338912123a67330d723fdbb564d646c9f"
+checksum = "031b47cf1a3c6cc8bc2fc76cd437f521619387907d469316e7c0bc278f1f5432"
 dependencies = [
  "futures-core",
  "futures-task",
@@ -1227,38 +1257,38 @@ dependencies = [
 
 [[package]]
 name = "futures-io"
-version = "0.3.31"
+version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e5c1b78ca4aae1ac06c48a526a655760685149f0d465d21f37abfe57ce075c6"
+checksum = "53c0fa8157de1303bfffdaa1cc2a673bfffb60102f76b0ef4441659124373fed"
 
 [[package]]
 name = "futures-macro"
-version = "0.3.31"
+version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "162ee34ebcb7c64a8abebc059ce0fee27c2262618d7b60ed8faf72fef13c3650"
+checksum = "9fb9654ba8355388abeb8dcb4fc62f511300867002afc858860463bdd9fe0c44"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.114",
+ "syn 3.0.6",
 ]
 
 [[package]]
 name = "futures-sink"
-version = "0.3.31"
+version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e575fab7d1e0dcb8d0c7bcf9a63ee213816ab51902e6d244a95819acacf1d4f7"
+checksum = "1944426bf7d03f1d14f708785e4b33efd750b36d48a157b836b3efc15ede8e1d"
 
 [[package]]
 name = "futures-task"
-version = "0.3.31"
+version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f90f7dce0722e95104fcb095585910c0977252f286e354b5e3bd38902cd99988"
+checksum = "cd417de3d1d015fc3bfd2b1ea46dfc7bab72ef86f1cc7cc9c78e728b34a6d1fd"
 
 [[package]]
 name = "futures-util"
-version = "0.3.31"
+version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9fa08315bb612088cc391249efdc3bc77536f16c91f6cf495e6fbe85b20a4a81"
+checksum = "0d50a92467f8ba5dd6e3ee5d4bd04d73ab2e4e1c44474a0674821dfce14b79bc"
 dependencies = [
  "futures-channel",
  "futures-core",
@@ -1268,7 +1298,6 @@ dependencies = [
  "futures-task",
  "memchr",
  "pin-project-lite",
- "pin-utils",
  "slab",
 ]
 
@@ -1375,9 +1404,9 @@ dependencies = [
 
 [[package]]
 name = "halo2_gadgets"
-version = "0.3.1"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "73a5e510d58a07d8ed238a5a8a436fe6c2c79e1bb2611f62688bc65007b4e6e7"
+checksum = "fb2a697cad929f706b7987fe804ad57d43622cd37463ba7e4d662a926fdcfea3"
 dependencies = [
  "arrayvec",
  "bitvec",
@@ -1446,20 +1475,14 @@ dependencies = [
 
 [[package]]
 name = "hashbrown"
-version = "0.15.5"
+version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9229cfe53dfd69f0609a49f65461bd93001ea1ef889cd5529dd176593f5338a1"
+checksum = "841d1cc9bed7f9236f321df977030373f4a4163ae1a7dbfe1a51a2c1a51d9100"
 dependencies = [
  "allocator-api2",
  "equivalent",
  "foldhash",
 ]
-
-[[package]]
-name = "hashbrown"
-version = "0.16.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "841d1cc9bed7f9236f321df977030373f4a4163ae1a7dbfe1a51a2c1a51d9100"
 
 [[package]]
 name = "hashlink"
@@ -2371,14 +2394,14 @@ checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
 
 [[package]]
 name = "orchard"
-version = "0.11.0"
+version = "0.15.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1ef66fcf99348242a20d582d7434da381a867df8dc155b3a980eca767c56137"
+checksum = "e8b67beade27dbebdbfee0819e23170b0b263dc7b4f558ee936151716baf6e1f"
 dependencies = [
  "aes",
  "bitvec",
  "blake2b_simd",
- "core2",
+ "corez",
  "ff",
  "fpe",
  "getset",
@@ -2393,6 +2416,7 @@ dependencies = [
  "nonempty",
  "pasta_curves",
  "rand",
+ "rand_core",
  "reddsa",
  "serde",
  "sinsemilla",
@@ -2537,12 +2561,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3b3cff922bd51709b605d9ead9aa71031d81447142d828eb4a6eba76fe619f9b"
 
 [[package]]
-name = "pin-utils"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
-
-[[package]]
 name = "pkcs1"
 version = "0.7.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2575,7 +2593,7 @@ version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8159bd90725d2df49889a078b54f4f79e87f1f8a8444194cdca81d38f5393abf"
 dependencies = [
- "cpufeatures",
+ "cpufeatures 0.2.17",
  "opaque-debug",
  "universal-hash",
 ]
@@ -2682,7 +2700,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be769465445e8c1474e9c5dac2018218498557af32d9ed057325ec9a41ae81bf"
 dependencies = [
  "heck 0.5.0",
- "itertools 0.14.0",
+ "itertools 0.12.1",
  "log",
  "multimap",
  "once_cell",
@@ -2702,7 +2720,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a56d757972c98b346a9b766e3f02746cde6dd1cd1d1d563472929fdd74bec4d"
 dependencies = [
  "anyhow",
- "itertools 0.14.0",
+ "itertools 0.12.1",
  "proc-macro2",
  "quote",
  "syn 2.0.114",
@@ -3048,9 +3066,9 @@ checksum = "a50f4cf475b65d88e057964e0e9bb1f0aa9bbb2036dc65c64596b42932536984"
 
 [[package]]
 name = "sapling-crypto"
-version = "0.5.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9d3c081c83f1dc87403d9d71a06f52301c0aa9ea4c17da2a3435bbf493ffba4"
+checksum = "2d70756ede56b5e4dd417979777bd87ddb83dfcbd0815dbf8175a9920537f8a0"
 dependencies = [
  "aes",
  "bellman",
@@ -3058,7 +3076,7 @@ dependencies = [
  "blake2b_simd",
  "blake2s_simd",
  "bls12_381",
- "core2",
+ "corez",
  "document-features",
  "ff",
  "fpe",
@@ -3108,8 +3126,21 @@ checksum = "54e910108742c57a770f492731f99be216a52fadd361b06c8fb59d74ccc267d2"
 dependencies = [
  "dyn-clone",
  "ref-cast",
+ "schemars_derive",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "schemars_derive"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4908ad288c5035a8eb12cfdf0d49270def0a268ee162b75eeee0f85d155a7c45"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "serde_derive_internals",
+ "syn 2.0.114",
 ]
 
 [[package]]
@@ -3206,6 +3237,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_derive_internals"
+version = "0.29.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "18d26a20a969b9e3fdf2fc2d9f21eda6c40e2de84c9408bb5d3b05d499aae711"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.114",
+]
+
+[[package]]
 name = "serde_json"
 version = "1.0.149"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3268,7 +3310,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e3bf829a2d51ab4a5ddf1352d8470c140cadc8301b2ae1789db023f01cedd6ba"
 dependencies = [
  "cfg-if",
- "cpufeatures",
+ "cpufeatures 0.2.17",
  "digest 0.10.7",
 ]
 
@@ -3279,7 +3321,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a7507d819769d01a365ab707794a4084392c824f54a7a6a7862f8c3d0892b283"
 dependencies = [
  "cfg-if",
- "cpufeatures",
+ "cpufeatures 0.2.17",
  "digest 0.10.7",
 ]
 
@@ -3290,7 +3332,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "540c0893cce56cdbcfebcec191ec8e0f470dd1889b6e7a0b503e310a94a168f5"
 dependencies = [
  "cfg-if",
- "cpufeatures",
+ "cpufeatures 0.2.17",
  "digest 0.11.0-pre.9",
 ]
 
@@ -3629,6 +3671,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 
 [[package]]
+name = "strum"
+version = "0.27.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "af23d6f6c1a224baef9d3f61e287d2761385a5b88fdab4eb4c6f11aeb54c4bcf"
+dependencies = [
+ "strum_macros",
+]
+
+[[package]]
+name = "strum_macros"
+version = "0.27.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7695ce3845ea4b33927c055a39dc438a45b059f7c1b3d91d38d10355fb8cbca7"
+dependencies = [
+ "heck 0.5.0",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.114",
+]
+
+[[package]]
 name = "subtle"
 version = "2.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3650,6 +3713,17 @@ name = "syn"
 version = "2.0.114"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d4d107df263a3013ef9b1879b0df87d706ff80f65a86ea879bd9c31f9b307c2a"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "unicode-ident",
+]
+
+[[package]]
+name = "syn"
+version = "3.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8593e8e72159ed2257d083c7a454a85cbf854f37a0966d8d483aff8c8a3ebcee"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4685,37 +4759,47 @@ dependencies = [
 
 [[package]]
 name = "zcash_address"
-version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee4491dddd232de02df42481757054dc19c8bc51cf709cfec58feebfef7c3c9a"
+version = "0.13.0"
+source = "git+https://github.com/ShieldedLabs/crosslink_monolith.git?rev=eca0207c19469df3abd9da8290bf0aea94da8642#eca0207c19469df3abd9da8290bf0aea94da8642"
 dependencies = [
  "bech32",
  "bs58",
- "core2",
+ "corez",
  "f4jumble",
- "zcash_encoding",
+ "zcash_encoding 0.4.0",
  "zcash_protocol",
 ]
 
 [[package]]
 name = "zcash_encoding"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bca38087e6524e5f51a5b0fb3fc18f36d7b84bf67b2056f494ca0c281590953d"
+checksum = "1440921903cdb86133fb9e2fe800be488015db2939a30bedb413078a1acb0306"
 dependencies = [
- "core2",
+ "corez",
+ "hex",
+ "nonempty",
+]
+
+[[package]]
+name = "zcash_encoding"
+version = "0.5.0"
+source = "git+https://github.com/ShieldedLabs/crosslink_monolith.git?rev=eca0207c19469df3abd9da8290bf0aea94da8642#eca0207c19469df3abd9da8290bf0aea94da8642"
+dependencies = [
+ "corez",
+ "hex",
  "nonempty",
 ]
 
 [[package]]
 name = "zcash_history"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2fde17bf53792f9c756b313730da14880257d7661b5bfc69d0571c3a7c11a76d"
+version = "0.6.0"
+source = "git+https://github.com/ShieldedLabs/crosslink_monolith.git?rev=eca0207c19469df3abd9da8290bf0aea94da8642#eca0207c19469df3abd9da8290bf0aea94da8642"
 dependencies = [
  "blake2b_simd",
- "byteorder",
+ "corez",
  "primitive-types",
+ "zcash_encoding 0.5.0",
 ]
 
 [[package]]
@@ -4733,22 +4817,19 @@ dependencies = [
 
 [[package]]
 name = "zcash_primitives"
-version = "0.26.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3fd9ff256fb298a7e94a73c1adad6c7e0b4b194b902e777ee9f5f2e12c4c4776"
+version = "0.30.0"
+source = "git+https://github.com/ShieldedLabs/crosslink_monolith.git?rev=eca0207c19469df3abd9da8290bf0aea94da8642#eca0207c19469df3abd9da8290bf0aea94da8642"
 dependencies = [
- "bip32",
  "blake2b_simd",
+ "blake3",
  "block-buffer 0.11.0-rc.3",
- "bs58",
- "core2",
+ "byteorder",
+ "corez",
  "crypto-common 0.2.0-rc.1",
  "document-features",
- "equihash",
+ "ed25519-zebra",
+ "equihash 0.3.0 (git+https://github.com/ShieldedLabs/crosslink_monolith.git?rev=eca0207c19469df3abd9da8290bf0aea94da8642)",
  "ff",
- "fpe",
- "getset",
- "group",
  "hex",
  "incrementalmerkletree",
  "jubjub",
@@ -4758,39 +4839,36 @@ dependencies = [
  "rand",
  "rand_core",
  "redjubjub",
- "ripemd 0.1.3",
  "sapling-crypto",
  "secp256k1",
+ "serde",
+ "serde-big-array",
  "sha2 0.10.9",
- "subtle",
  "tracing",
- "zcash_address",
- "zcash_encoding",
+ "zcash_encoding 0.4.0",
  "zcash_note_encryption",
  "zcash_protocol",
  "zcash_script",
- "zcash_spec",
  "zcash_transparent",
- "zip32",
 ]
 
 [[package]]
 name = "zcash_protocol"
-version = "0.7.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "18b1a337bbc9a7d55ae35d31189f03507dbc7934e9a4bee5c1d5c47464860e48"
+version = "0.10.4"
+source = "git+https://github.com/ShieldedLabs/crosslink_monolith.git?rev=eca0207c19469df3abd9da8290bf0aea94da8642#eca0207c19469df3abd9da8290bf0aea94da8642"
 dependencies = [
- "core2",
+ "corez",
  "document-features",
  "hex",
  "memuse",
+ "zcash_encoding 0.4.0",
 ]
 
 [[package]]
 name = "zcash_script"
-version = "0.4.2"
+version = "0.4.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9bed6cf5b2b4361105d4ea06b2752f0c8af4641756c7fbc9858a80af186c234f"
+checksum = "2f872800287d118be71bdf6fe8c869c6a6ff6fb0a5762f68fb2af54c97edf0f2"
 dependencies = [
  "bip32",
  "bitflags 2.10.0",
@@ -4814,14 +4892,12 @@ dependencies = [
 
 [[package]]
 name = "zcash_transparent"
-version = "0.6.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a9b7b4bc11d8bb20833d1b8ab6807f4dca941b381f1129e5bbd72a84e391991"
+version = "0.10.0"
+source = "git+https://github.com/ShieldedLabs/crosslink_monolith.git?rev=eca0207c19469df3abd9da8290bf0aea94da8642#eca0207c19469df3abd9da8290bf0aea94da8642"
 dependencies = [
  "bip32",
- "blake2b_simd",
  "bs58",
- "core2",
+ "corez",
  "document-features",
  "getset",
  "hex",
@@ -4831,7 +4907,7 @@ dependencies = [
  "sha2 0.10.9",
  "subtle",
  "zcash_address",
- "zcash_encoding",
+ "zcash_encoding 0.4.0",
  "zcash_protocol",
  "zcash_script",
  "zcash_spec",
@@ -4840,9 +4916,8 @@ dependencies = [
 
 [[package]]
 name = "zebra-chain"
-version = "3.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6b4aa7e85afd7bdf159e8c9a973d32bfc410be42ce82c2396690ae1208933bb8"
+version = "11.3.0"
+source = "git+https://github.com/ShieldedLabs/crosslink_monolith.git?rev=eca0207c19469df3abd9da8290bf0aea94da8642#eca0207c19469df3abd9da8290bf0aea94da8642"
 dependencies = [
  "bech32",
  "bitflags 2.10.0",
@@ -4850,13 +4925,14 @@ dependencies = [
  "bitvec",
  "blake2b_simd",
  "blake2s_simd",
+ "bounded-vec",
  "bs58",
  "byteorder",
  "chrono",
  "derive-getters",
  "dirs",
  "ed25519-zebra",
- "equihash",
+ "equihash 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures",
  "group",
  "halo2_proofs",
@@ -4875,6 +4951,7 @@ dependencies = [
  "redjubjub",
  "ripemd 0.1.3",
  "sapling-crypto",
+ "schemars 1.2.0",
  "secp256k1",
  "serde",
  "serde-big-array",
@@ -4882,19 +4959,30 @@ dependencies = [
  "sha2 0.10.9",
  "sinsemilla",
  "static_assertions",
+ "strum",
  "tempfile",
  "thiserror 2.0.18",
  "tracing",
  "uint 0.10.0",
  "x25519-dalek",
  "zcash_address",
- "zcash_encoding",
+ "zcash_encoding 0.5.0",
  "zcash_history",
  "zcash_note_encryption",
  "zcash_primitives",
  "zcash_protocol",
  "zcash_script",
  "zcash_transparent",
+ "zebra-debug-time",
+]
+
+[[package]]
+name = "zebra-debug-time"
+version = "0.1.0"
+source = "git+https://github.com/ShieldedLabs/crosslink_monolith.git?rev=eca0207c19469df3abd9da8290bf0aea94da8642#eca0207c19469df3abd9da8290bf0aea94da8642"
+dependencies = [
+ "chrono",
+ "serde",
 ]
 
 [[package]]

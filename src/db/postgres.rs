@@ -327,6 +327,37 @@ impl PostgresWriter {
         let mut db_tx = self.pool.begin().await?;
         let mut count = 0u64;
 
+        // Recovery may replay up to a checkpoint boundary after a crash.
+        // Address balances below are additive, so an UPSERT alone is not
+        // idempotent. Serialize writers at a height and skip identical blocks;
+        // refuse a changed hash until an explicit chain repair is performed.
+        sqlx::query("SELECT pg_advisory_xact_lock($1)")
+            .bind(i64::from(height))
+            .execute(&mut *db_tx)
+            .await?;
+        let existing: Option<(String,)> = sqlx::query_as("SELECT hash FROM blocks WHERE height = $1")
+            .bind(height as i64)
+            .fetch_optional(&mut *db_tx)
+            .await?;
+        if let Some((existing_hash,)) = existing {
+            if existing_hash != hash {
+                return Err(sqlx::Error::Protocol(format!("Block hash changed at height {height}; explicit chain repair required")));
+            }
+            db_tx.commit().await?;
+            return Ok((0, 0));
+        }
+        if height > 0 {
+            let previous: Option<(String,)> = sqlx::query_as("SELECT hash FROM blocks WHERE height = $1")
+                .bind(i64::from(height - 1))
+                .fetch_optional(&mut *db_tx)
+                .await?;
+            if let Some((previous_hash,)) = previous {
+                if !header.previous_block_hash.is_empty() && previous_hash != header.previous_block_hash {
+                    return Err(sqlx::Error::Protocol(format!("Chain ancestry changed before height {height}; explicit chain repair required")));
+                }
+            }
+        }
+
         // Calculate block-level aggregates
         let total_fees: i64 = transactions.iter().filter_map(|tx| tx.fee).sum();
 
@@ -412,11 +443,12 @@ impl PostgresWriter {
                     value_balance_sapling, value_balance_orchard,
                     is_coinbase, has_sapling, has_orchard,
                     vin_count, vout_count, block_time, tx_index,
-                    staking_action_type, staking_bond_key, staking_delegatee, staking_amount_zats
+                    staking_action_type, staking_bond_key, staking_delegatee, staking_amount_zats,
+                    ironwood_actions, value_balance_ironwood, has_ironwood
                 ) VALUES (
                     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
                     $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22,
-                    $23, $24, $25, $26
+                    $23, $24, $25, $26, $27, $28, $29
                 )
                 ON CONFLICT (txid) DO UPDATE SET
                     block_height = EXCLUDED.block_height,
@@ -429,7 +461,10 @@ impl PostgresWriter {
                     staking_action_type = EXCLUDED.staking_action_type,
                     staking_bond_key = EXCLUDED.staking_bond_key,
                     staking_delegatee = EXCLUDED.staking_delegatee,
-                    staking_amount_zats = EXCLUDED.staking_amount_zats
+                    staking_amount_zats = EXCLUDED.staking_amount_zats,
+                    ironwood_actions = EXCLUDED.ironwood_actions,
+                    value_balance_ironwood = EXCLUDED.value_balance_ironwood,
+                    has_ironwood = EXCLUDED.has_ironwood
                 "#,
             )
             .bind(&tx.txid)
@@ -458,6 +493,9 @@ impl PostgresWriter {
             .bind(&tx.staking_bond_key) // $24
             .bind(&tx.staking_delegatee) // $25
             .bind(tx.staking_amount_zats.map(|v| v as i64)) // $26
+            .bind(tx.ironwood_actions as i32) // $27
+            .bind(tx.ironwood_value_balance) // $28
+            .bind(tx.ironwood_actions > 0) // $29
             .execute(&mut *db_tx)
             .await?;
 

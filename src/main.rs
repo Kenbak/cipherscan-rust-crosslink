@@ -1086,13 +1086,16 @@ async fn verify_parsing(
     use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
     use serde_json::{json, Value};
 
+    let end_height = start_height
+        .checked_add(count.checked_sub(1).ok_or("Verification count must be positive")?)
+        .ok_or("Verification height range overflows u32")?;
     println!("🔍 Verifying RocksDB parsing against RPC...");
     println!("   RPC URL: {}", rpc_url);
     println!("   Cookie file: {}", cookie_file);
     println!(
         "   Heights: {} to {}",
         start_height,
-        start_height + count - 1
+        end_height
     );
     println!("────────────────────────────────────────────────────────────");
 
@@ -1104,11 +1107,9 @@ async fn verify_parsing(
 
     // Use cookie content directly (already has __cookie__:password format)
     let auth = BASE64.encode(cookie_trimmed);
-    println!(
-        "   Auth: {}...{}",
-        &cookie_trimmed[..15],
-        &cookie_trimmed[cookie_trimmed.len() - 5..]
-    );
+    // Cookies can be empty on unauthenticated feature nets (e.g. /dev/null).
+    // Never print any credential bytes or slice a possibly short UTF-8 value.
+    println!("   Cookie authentication: {}", if cookie_trimmed.is_empty() { "disabled" } else { "configured" });
     println!();
 
     let zebra = ZebraState::open(config)?;
@@ -1117,7 +1118,7 @@ async fn verify_parsing(
     let mut matches = 0;
     let mut mismatches = 0;
 
-    for height in start_height..start_height + count {
+    for height in start_height..=end_height {
         // Get hash from RocksDB
         let rocks_hash = match zebra.get_block_hash(height) {
             Ok(h) => {

@@ -18,8 +18,8 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
 # Zcash parsing (from zebra-crosslink fork — includes VCrosslink tx support)
-zebra-chain = { git = "https://github.com/ShieldedLabs/crosslink_monolith.git", tag = "season-1-workshop-1" }
-zcash_primitives = { git = "https://github.com/ShieldedLabs/crosslink_monolith.git", tag = "season-1-workshop-1", default-features = false }
+zebra-chain = { git = "https://github.com/ShieldedLabs/crosslink_monolith.git", rev = "eca0207c19469df3abd9da8290bf0aea94da8642" }
+zcash_primitives = { git = "https://github.com/ShieldedLabs/crosslink_monolith.git", rev = "eca0207c19469df3abd9da8290bf0aea94da8642", default-features = false }
 
 # CLI
 clap = { version = "4", features = ["derive", "env"] }

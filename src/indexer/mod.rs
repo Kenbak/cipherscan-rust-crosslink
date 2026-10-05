@@ -337,6 +337,16 @@ impl Indexer {
             }
         }
 
+        // Live mode uses a different checkpoint key. Handoff only after the
+        // entire backfill succeeded, without moving a newer live cursor back.
+        if let Some(height) = last_successful_height {
+            let live = self.postgres.get_checkpoint().await
+                .map_err(|e| format!("Checkpoint error: {e}"))?;
+            if live.map_or(true, |current| height > current) {
+                self.postgres.update_checkpoint("last_indexed_height", &height.to_string()).await
+                    .map_err(|e| format!("Checkpoint error: {e}"))?;
+            }
+        }
         Ok(())
     }
 
@@ -409,7 +419,9 @@ impl Indexer {
             if !tx.is_coinbase() {
                 let fee = tx.transparent_value_in - tx.transparent_value_out
                     + tx.sapling_value_balance
-                    + tx.orchard_value_balance;
+                    + tx.orchard_value_balance
+                    + tx.ironwood_value_balance
+                    + tx.staking_value_balance;
                 if fee >= 0 {
                     tx.fee = Some(fee);
                 }
@@ -558,12 +570,24 @@ impl Indexer {
                 .map_err(|e| format!("Checkpoint error: {}", e))?
                 .unwrap_or(0);
 
-            if rpc_tip > last_indexed {
-                let blocks_behind = rpc_tip - last_indexed;
+            // RocksDB contains the node's durable PoW state; recent blocks
+            // remain in memory (typically the last 100). Bound reads to the
+            // actual secondary tip rather than retrying nonexistent disk rows.
+            let index_tip = if let Some(zebra) = self.zebra.as_ref() {
+                zebra.try_catch_up()?;
+                zebra.get_tip_height()?.min(rpc_tip)
+            } else {
+                rpc_tip
+            };
+            self.postgres.update_checkpoint("last_seen_state_tip", &index_tip.to_string()).await
+                .map_err(|e| format!("State-tip heartbeat error: {e}"))?;
+
+            if index_tip > last_indexed {
+                let blocks_behind = index_tip - last_indexed;
                 println!(
                     "📥 New blocks: {} → {} ({} behind)",
                     last_indexed + 1,
-                    rpc_tip,
+                    index_tip,
                     blocks_behind
                 );
 
@@ -572,13 +596,7 @@ impl Indexer {
                 let mut not_found_retries: u32 = 0;
                 const MAX_NOT_FOUND_RETRIES: u32 = 10;
 
-                // Ask RocksDB secondary to pick up blocks zebrad has just
-                // written. Required before we can read the latest headers.
-                if let Some(zebra) = self.zebra.as_ref() {
-                    let _ = zebra.try_catch_up();
-                }
-
-                while height <= rpc_tip {
+                while height <= index_tip {
                     let result = if self.zebra.is_some() {
                         self.index_block(height).await
                     } else {
@@ -626,10 +644,9 @@ impl Indexer {
 
             // Update finality status from Crosslink TFL after each cycle
             if let Some(finalized_h) = rpc.get_finalized_height().await {
-                // Track chain divergence. Per ShieldedLabs, a sidechain >100 blocks
-                // corrupts the finalizer roster and requires a Zebra cache wipe.
-                // We record the start/peak/end of every divergence so we can spot
-                // whether they cluster at specific heights or times after resets.
+                // Track a finality gap; the gap alone cannot establish a fork
+                // or justify wiping state. Compare schedules, full hashes and
+                // independent peer observations before any chain repair.
                 let gap = rpc_tip.saturating_sub(finalized_h);
 
                 if gap >= DIVERGENCE_WARNING {
@@ -638,7 +655,7 @@ impl Indexer {
                     if severity == "critical" {
                         println!(
                             "   🚨 FINALITY GAP CRITICAL: {} blocks (tip {} vs finalized {}). \
-                             Node may be on a sidechain; a Zebra cache wipe may be required.",
+                             Check peer ancestry and BFT liveness; a gap alone does not prove a fork.",
                             gap, rpc_tip, finalized_h
                         );
                     } else {

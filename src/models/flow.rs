@@ -43,6 +43,7 @@ pub enum Pool {
     Sprout,
     Sapling,
     Orchard,
+    Ironwood,
 }
 
 impl Pool {
@@ -51,6 +52,7 @@ impl Pool {
             Pool::Sprout => "sprout",
             Pool::Sapling => "sapling",
             Pool::Orchard => "orchard",
+            Pool::Ironwood => "ironwood",
         }
     }
 }
@@ -88,7 +90,7 @@ impl ShieldedFlow {
         }
 
         // Calculate NET total (exactly like Node.js)
-        let total_value_balance = tx.sapling_value_balance + tx.orchard_value_balance;
+        let total_value_balance = tx.sapling_value_balance + tx.orchard_value_balance + tx.ironwood_value_balance;
 
         // Only create a flow if there's net movement
         if total_value_balance == 0 {
@@ -99,9 +101,8 @@ impl ShieldedFlow {
         // or just a fully shielded tx where the value balance is the fee.
         // Pool migrations have opposing signs (one pool positive, the other negative).
         if tx.vin_count == 0 && tx.vout_count == 0 {
-            let is_pool_migration =
-                (tx.sapling_value_balance > 0 && tx.orchard_value_balance < 0)
-                || (tx.orchard_value_balance > 0 && tx.sapling_value_balance < 0);
+            let balances = [tx.sapling_value_balance, tx.orchard_value_balance, tx.ironwood_value_balance];
+            let is_pool_migration = balances.iter().any(|b| *b > 0) && balances.iter().any(|b| *b < 0);
             if !is_pool_migration {
                 return flows;
             }
@@ -122,8 +123,11 @@ impl ShieldedFlow {
 
         // Determine pool type (Node.js logic)
         // "mixed" if BOTH pools have non-zero balance (regardless of sign)
-        let pool = if tx.sapling_value_balance != 0 && tx.orchard_value_balance != 0 {
+        let balances = [tx.sapling_value_balance, tx.orchard_value_balance, tx.ironwood_value_balance];
+        let pool = if balances.iter().filter(|b| **b != 0).count() > 1 {
             "mixed".to_string()
+        } else if tx.ironwood_value_balance != 0 {
+            Pool::Ironwood.to_string()
         } else if tx.orchard_value_balance != 0 {
             Pool::Orchard.to_string()
         } else {
@@ -172,11 +176,18 @@ mod tests {
             sapling_spends: 0,
             sapling_outputs: 0,
             orchard_actions: 2,
+            ironwood_actions: 0,
+            ironwood_value_balance: 0,
+            staking_value_balance: 0,
             sapling_value_balance: 0,
             orchard_value_balance: 10000, // fee only
             fee: Some(10000),
             vin: vec![],
             vout: vec![],
+            staking_action_type: None,
+            staking_bond_key: None,
+            staking_delegatee: None,
+            staking_amount_zats: None,
         };
 
         let flows = ShieldedFlow::from_transaction(&tx);
@@ -201,11 +212,18 @@ mod tests {
             sapling_spends: 2,
             sapling_outputs: 0,
             orchard_actions: 2,
+            ironwood_actions: 0,
+            ironwood_value_balance: 0,
+            staking_value_balance: 0,
             sapling_value_balance: 5000000,    // 0.05 ZEC leaving Sapling
             orchard_value_balance: -4990000,   // ~0.05 ZEC entering Orchard (minus fee)
             fee: Some(10000),
             vin: vec![],
             vout: vec![],
+            staking_action_type: None,
+            staking_bond_key: None,
+            staking_delegatee: None,
+            staking_amount_zats: None,
         };
 
         let flows = ShieldedFlow::from_transaction(&tx);

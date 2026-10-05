@@ -21,9 +21,8 @@ impl FlowAnalyzer {
 
         // Check for pool migration first
         if tx.vin_count == 0 && tx.vout_count == 0 && tx.has_shielded() {
-            if (tx.sapling_value_balance > 0 && tx.orchard_value_balance < 0)
-                || (tx.orchard_value_balance > 0 && tx.sapling_value_balance < 0)
-            {
+            let balances = [tx.sapling_value_balance, tx.orchard_value_balance, tx.ironwood_value_balance];
+            if balances.iter().any(|b| *b > 0) && balances.iter().any(|b| *b < 0) {
                 return Some(FlowType::PoolMigration);
             }
         }
@@ -60,6 +59,10 @@ impl FlowAnalyzer {
             pools.push(Pool::Orchard);
         }
 
+        if tx.ironwood_actions > 0 || tx.ironwood_value_balance != 0 {
+            pools.push(Pool::Ironwood);
+        }
+
         pools
     }
 
@@ -69,6 +72,7 @@ impl FlowAnalyzer {
             Pool::Sprout => 0, // Would need JoinSplit parsing
             Pool::Sapling => tx.sapling_value_balance,
             Pool::Orchard => tx.orchard_value_balance,
+            Pool::Ironwood => tx.ironwood_value_balance,
         }
     }
 
@@ -100,6 +104,9 @@ mod tests {
             sapling_spends: 0,
             sapling_outputs: 1,
             orchard_actions: 0,
+            ironwood_actions: 0,
+            ironwood_value_balance: 0,
+            staking_value_balance: 0,
             sapling_value_balance: -9999000,
             orchard_value_balance: 0,
             fee: Some(1000),
@@ -110,6 +117,35 @@ mod tests {
             staking_delegatee: None,
             staking_amount_zats: None,
         }
+    }
+
+    #[test]
+    fn ironwood_only_transaction_is_fully_shielded_and_identifies_its_pool() {
+        let mut tx = create_test_tx();
+        tx.vin_count = 0;
+        tx.vout_count = 0;
+        tx.sapling_outputs = 0;
+        tx.sapling_value_balance = 0;
+        tx.ironwood_actions = 2;
+        tx.ironwood_value_balance = 10_000;
+        assert_eq!(FlowAnalyzer::classify(&tx), Some(FlowType::FullyShielded));
+        assert_eq!(FlowAnalyzer::involved_pools(&tx), vec![Pool::Ironwood]);
+        assert_eq!(FlowAnalyzer::net_flow_amount(&tx, Pool::Ironwood), 10_000);
+    }
+
+    #[test]
+    fn sapling_to_ironwood_is_a_pool_migration() {
+        let mut tx = create_test_tx();
+        tx.vin_count = 0;
+        tx.vout_count = 0;
+        tx.sapling_value_balance = 100_000;
+        tx.ironwood_actions = 2;
+        tx.ironwood_value_balance = -90_000;
+        assert_eq!(FlowAnalyzer::classify(&tx), Some(FlowType::PoolMigration));
+        let flows = FlowAnalyzer::analyze(&tx);
+        assert_eq!(flows.len(), 1);
+        assert_eq!(flows[0].pool, "mixed");
+        assert_eq!(flows[0].amount, 10_000);
     }
 
     #[test]

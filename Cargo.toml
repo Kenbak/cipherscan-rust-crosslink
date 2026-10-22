@@ -10,7 +10,7 @@ authors = ["CipherScan"]
 tokio = { version = "1", features = ["full"] }
 
 # Database
-sqlx = { version = "0.7", features = ["runtime-tokio", "postgres", "chrono"] }
+sqlx = { version = "0.8.6", default-features = false, features = ["runtime-tokio", "postgres", "chrono"] }
 rocksdb = "0.22"
 
 # Serialization
@@ -27,7 +27,6 @@ clap = { version = "4", features = ["derive", "env"] }
 # Utils
 chrono = { version = "0.4", features = ["serde"] }
 hex = "0.4"
-thiserror = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
@@ -40,7 +39,7 @@ base64 = "0.22"
 dotenvy = "0.15"
 
 # HTTP client for RPC verification
-reqwest = { version = "0.11", features = ["json"] }
+reqwest = { version = "0.12", features = ["json"] }
 
 # gRPC client for Zebra indexer streaming
 tonic = "0.12"

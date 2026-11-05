@@ -418,6 +418,28 @@ mod tests {
     }
 
     #[test]
+    fn v16_featurenet_upgrade1_transaction_round_trips_through_native_parser() {
+        // v15/v16 activate FeaturenetUpgrade1 at PoW height 55,296. Its new
+        // consensus branch id must parse, or the indexer halts at that height.
+        use zebra_chain::serialization::ZcashSerialize;
+        let tx = ZebraTransaction::VCrosslink {
+            network_upgrade: zebra_chain::parameters::NetworkUpgrade::FeaturenetUpgrade1,
+            lock_time: zebra_chain::transaction::LockTime::Height(zebra_chain::block::Height(0)),
+            expiry_height: zebra_chain::block::Height(60_000),
+            inputs: vec![], outputs: vec![], sapling_shielded_data: None,
+            orchard_shielded_data: None, ironwood_shielded_data: None,
+            staking_action: Some(zcash_primitives::transaction::StakingAction::BeginDelegationUnbonding {
+                unique_pubkey: [5; 32], signature: [0; 64],
+            }),
+        };
+        let bytes = tx.zcash_serialize_to_vec().unwrap();
+        let parsed = TransactionParser::parse(&bytes, 55_296, "fixture", Network::Crosslink).unwrap();
+        assert_eq!(parsed.version, 7);
+        assert_eq!(parsed.staking_bond_key, Some(hex::encode([5; 32])));
+        assert_eq!(parsed.staking_action_type.as_deref(), Some("BeginDelegationUnbonding"));
+    }
+
+    #[test]
     fn v14_reward_conversion_preserves_bond_target_and_exact_amount() {
         let action = zcash_primitives::transaction::StakingAction::ConvertFinalizerRewardToDelegationBond {
             unique_pubkey: [1; 32], signature: [0; 64], bond_salt: [2; 32],

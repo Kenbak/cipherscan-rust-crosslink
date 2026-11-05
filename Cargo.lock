@@ -96,7 +96,7 @@ version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "40c48f72fd53cd289104fc64099abca73db4166ad86ea0b4341abe65af83dadc"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -107,7 +107,7 @@ checksum = "291e6a250ff86cd4a820112fb8898808a366d8f9f58ce16d1f538353ad55747d"
 dependencies = [
  "anstyle",
  "once_cell_polyfill",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -946,7 +946,7 @@ dependencies = [
  "libc",
  "option-ext",
  "redox_users",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -1041,7 +1041,7 @@ dependencies = [
 [[package]]
 name = "equihash"
 version = "0.3.0"
-source = "git+https://github.com/ShieldedLabs/crosslink_monolith.git?rev=eca0207c19469df3abd9da8290bf0aea94da8642#eca0207c19469df3abd9da8290bf0aea94da8642"
+source = "git+https://github.com/ShieldedLabs/crosslink_monolith.git?rev=1dd0b12ddea75dfb0f8f8749b900c9dbb35eb353#1dd0b12ddea75dfb0f8f8749b900c9dbb35eb353"
 dependencies = [
  "blake2b_simd",
  "corez",
@@ -1060,7 +1060,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -1083,7 +1083,7 @@ checksum = "0206175f82b8d6bf6652ff7d71a1e27fd2e4efde587fd368662814d6ec1d9ce0"
 [[package]]
 name = "f4jumble"
 version = "0.1.1"
-source = "git+https://github.com/ShieldedLabs/crosslink_monolith.git?rev=eca0207c19469df3abd9da8290bf0aea94da8642#eca0207c19469df3abd9da8290bf0aea94da8642"
+source = "git+https://github.com/ShieldedLabs/crosslink_monolith.git?rev=1dd0b12ddea75dfb0f8f8749b900c9dbb35eb353#1dd0b12ddea75dfb0f8f8749b900c9dbb35eb353"
 dependencies = [
  "blake2b_simd",
 ]
@@ -2249,7 +2249,7 @@ version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -2699,7 +2699,7 @@ version = "0.13.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be769465445e8c1474e9c5dac2018218498557af32d9ed057325ec9a41ae81bf"
 dependencies = [
- "heck 0.5.0",
+ "heck 0.4.1",
  "itertools 0.12.1",
  "log",
  "multimap",
@@ -3040,7 +3040,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -3790,7 +3790,7 @@ dependencies = [
  "getrandom 0.3.4",
  "once_cell",
  "rustix",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -4760,7 +4760,7 @@ dependencies = [
 [[package]]
 name = "zcash_address"
 version = "0.13.0"
-source = "git+https://github.com/ShieldedLabs/crosslink_monolith.git?rev=eca0207c19469df3abd9da8290bf0aea94da8642#eca0207c19469df3abd9da8290bf0aea94da8642"
+source = "git+https://github.com/ShieldedLabs/crosslink_monolith.git?rev=1dd0b12ddea75dfb0f8f8749b900c9dbb35eb353#1dd0b12ddea75dfb0f8f8749b900c9dbb35eb353"
 dependencies = [
  "bech32",
  "bs58",
@@ -4784,7 +4784,7 @@ dependencies = [
 [[package]]
 name = "zcash_encoding"
 version = "0.5.0"
-source = "git+https://github.com/ShieldedLabs/crosslink_monolith.git?rev=eca0207c19469df3abd9da8290bf0aea94da8642#eca0207c19469df3abd9da8290bf0aea94da8642"
+source = "git+https://github.com/ShieldedLabs/crosslink_monolith.git?rev=1dd0b12ddea75dfb0f8f8749b900c9dbb35eb353#1dd0b12ddea75dfb0f8f8749b900c9dbb35eb353"
 dependencies = [
  "corez",
  "hex",
@@ -4794,7 +4794,7 @@ dependencies = [
 [[package]]
 name = "zcash_history"
 version = "0.6.0"
-source = "git+https://github.com/ShieldedLabs/crosslink_monolith.git?rev=eca0207c19469df3abd9da8290bf0aea94da8642#eca0207c19469df3abd9da8290bf0aea94da8642"
+source = "git+https://github.com/ShieldedLabs/crosslink_monolith.git?rev=1dd0b12ddea75dfb0f8f8749b900c9dbb35eb353#1dd0b12ddea75dfb0f8f8749b900c9dbb35eb353"
 dependencies = [
  "blake2b_simd",
  "corez",
@@ -4818,7 +4818,7 @@ dependencies = [
 [[package]]
 name = "zcash_primitives"
 version = "0.30.0"
-source = "git+https://github.com/ShieldedLabs/crosslink_monolith.git?rev=eca0207c19469df3abd9da8290bf0aea94da8642#eca0207c19469df3abd9da8290bf0aea94da8642"
+source = "git+https://github.com/ShieldedLabs/crosslink_monolith.git?rev=1dd0b12ddea75dfb0f8f8749b900c9dbb35eb353#1dd0b12ddea75dfb0f8f8749b900c9dbb35eb353"
 dependencies = [
  "blake2b_simd",
  "blake3",
@@ -4828,7 +4828,7 @@ dependencies = [
  "crypto-common 0.2.0-rc.1",
  "document-features",
  "ed25519-zebra",
- "equihash 0.3.0 (git+https://github.com/ShieldedLabs/crosslink_monolith.git?rev=eca0207c19469df3abd9da8290bf0aea94da8642)",
+ "equihash 0.3.0 (git+https://github.com/ShieldedLabs/crosslink_monolith.git?rev=1dd0b12ddea75dfb0f8f8749b900c9dbb35eb353)",
  "ff",
  "hex",
  "incrementalmerkletree",
@@ -4855,7 +4855,7 @@ dependencies = [
 [[package]]
 name = "zcash_protocol"
 version = "0.10.4"
-source = "git+https://github.com/ShieldedLabs/crosslink_monolith.git?rev=eca0207c19469df3abd9da8290bf0aea94da8642#eca0207c19469df3abd9da8290bf0aea94da8642"
+source = "git+https://github.com/ShieldedLabs/crosslink_monolith.git?rev=1dd0b12ddea75dfb0f8f8749b900c9dbb35eb353#1dd0b12ddea75dfb0f8f8749b900c9dbb35eb353"
 dependencies = [
  "corez",
  "document-features",
@@ -4893,7 +4893,7 @@ dependencies = [
 [[package]]
 name = "zcash_transparent"
 version = "0.10.0"
-source = "git+https://github.com/ShieldedLabs/crosslink_monolith.git?rev=eca0207c19469df3abd9da8290bf0aea94da8642#eca0207c19469df3abd9da8290bf0aea94da8642"
+source = "git+https://github.com/ShieldedLabs/crosslink_monolith.git?rev=1dd0b12ddea75dfb0f8f8749b900c9dbb35eb353#1dd0b12ddea75dfb0f8f8749b900c9dbb35eb353"
 dependencies = [
  "bip32",
  "bs58",
@@ -4917,7 +4917,7 @@ dependencies = [
 [[package]]
 name = "zebra-chain"
 version = "11.3.0"
-source = "git+https://github.com/ShieldedLabs/crosslink_monolith.git?rev=eca0207c19469df3abd9da8290bf0aea94da8642#eca0207c19469df3abd9da8290bf0aea94da8642"
+source = "git+https://github.com/ShieldedLabs/crosslink_monolith.git?rev=1dd0b12ddea75dfb0f8f8749b900c9dbb35eb353#1dd0b12ddea75dfb0f8f8749b900c9dbb35eb353"
 dependencies = [
  "bech32",
  "bitflags 2.10.0",
@@ -4979,7 +4979,7 @@ dependencies = [
 [[package]]
 name = "zebra-debug-time"
 version = "0.1.0"
-source = "git+https://github.com/ShieldedLabs/crosslink_monolith.git?rev=eca0207c19469df3abd9da8290bf0aea94da8642#eca0207c19469df3abd9da8290bf0aea94da8642"
+source = "git+https://github.com/ShieldedLabs/crosslink_monolith.git?rev=1dd0b12ddea75dfb0f8f8749b900c9dbb35eb353#1dd0b12ddea75dfb0f8f8749b900c9dbb35eb353"
 dependencies = [
  "chrono",
  "serde",

@@ -405,7 +405,7 @@ mod tests {
             inputs: vec![], outputs: vec![], sapling_shielded_data: None,
             orchard_shielded_data: None, ironwood_shielded_data: None,
             staking_action: Some(zcash_primitives::transaction::StakingAction::BeginDelegationUnbonding {
-                unique_pubkey: [4; 32], signature: [0; 64],
+                unique_pubkey: [4; 32], signature: [0; 64], spends: None,
             }),
         };
         let bytes = tx.zcash_serialize_to_vec().unwrap();
@@ -429,7 +429,7 @@ mod tests {
             inputs: vec![], outputs: vec![], sapling_shielded_data: None,
             orchard_shielded_data: None, ironwood_shielded_data: None,
             staking_action: Some(zcash_primitives::transaction::StakingAction::BeginDelegationUnbonding {
-                unique_pubkey: [5; 32], signature: [0; 64],
+                unique_pubkey: [5; 32], signature: [0; 64], spends: None,
             }),
         };
         let bytes = tx.zcash_serialize_to_vec().unwrap();
@@ -437,6 +437,54 @@ mod tests {
         assert_eq!(parsed.version, 7);
         assert_eq!(parsed.staking_bond_key, Some(hex::encode([5; 32])));
         assert_eq!(parsed.staking_action_type.as_deref(), Some("BeginDelegationUnbonding"));
+    }
+
+    #[test]
+    fn v18_featurenet_upgrade2_transaction_round_trips_through_native_parser() {
+        // v17/v18 activate FeaturenetUpgrade2 at PoW height 165,000 with a new
+        // consensus branch id; a v16 parser pin halts the indexer there.
+        use zebra_chain::serialization::ZcashSerialize;
+        let tx = ZebraTransaction::VCrosslink {
+            network_upgrade: zebra_chain::parameters::NetworkUpgrade::FeaturenetUpgrade2,
+            lock_time: zebra_chain::transaction::LockTime::Height(zebra_chain::block::Height(0)),
+            expiry_height: zebra_chain::block::Height(170_000),
+            inputs: vec![], outputs: vec![], sapling_shielded_data: None,
+            orchard_shielded_data: None, ironwood_shielded_data: None,
+            staking_action: Some(zcash_primitives::transaction::StakingAction::WithdrawDelegationBond {
+                amount_zats: 1_250_000_001, unique_pubkey: [6; 32], signature: [0; 64], spends: None,
+            }),
+        };
+        let bytes = tx.zcash_serialize_to_vec().unwrap();
+        let parsed = TransactionParser::parse(&bytes, 165_000, "fixture", Network::Crosslink).unwrap();
+        assert_eq!(parsed.version, 7);
+        assert_eq!(parsed.staking_bond_key, Some(hex::encode([6; 32])));
+        assert_eq!(parsed.staking_action_type.as_deref(), Some("WithdrawDelegationBond"));
+        assert_eq!(parsed.staking_amount_zats, Some(1_250_000_001));
+        assert_eq!(parsed.staking_value_balance, 1_250_000_001);
+    }
+
+    #[test]
+    fn v18_featurenet_upgrade3_spending_unbond_parses_as_unbonding() {
+        // From FeaturenetUpgrade3 (PoW 189,000) actions on an existing bond carry
+        // the spent bond version under a new wire tag; the kind is unchanged.
+        use zebra_chain::serialization::ZcashSerialize;
+        let tx = ZebraTransaction::VCrosslink {
+            network_upgrade: zebra_chain::parameters::NetworkUpgrade::FeaturenetUpgrade3,
+            lock_time: zebra_chain::transaction::LockTime::Height(zebra_chain::block::Height(0)),
+            expiry_height: zebra_chain::block::Height(190_000),
+            inputs: vec![], outputs: vec![], sapling_shielded_data: None,
+            orchard_shielded_data: None, ironwood_shielded_data: None,
+            staking_action: Some(zcash_primitives::transaction::StakingAction::BeginDelegationUnbonding {
+                unique_pubkey: [7; 32], signature: [0; 64], spends: Some([8; 32]),
+            }),
+        };
+        let bytes = tx.zcash_serialize_to_vec().unwrap();
+        let parsed = TransactionParser::parse(&bytes, 189_000, "fixture", Network::Crosslink).unwrap();
+        assert_eq!(parsed.version, 7);
+        assert_eq!(parsed.staking_bond_key, Some(hex::encode([7; 32])));
+        assert_eq!(parsed.staking_action_type.as_deref(), Some("BeginDelegationUnbonding"));
+        assert_eq!(parsed.staking_amount_zats, None);
+        assert_eq!(parsed.staking_value_balance, 0);
     }
 
     #[test]
@@ -456,7 +504,7 @@ mod tests {
     #[test]
     fn v14_unbonding_does_not_invent_a_target_or_amount() {
         let action = zcash_primitives::transaction::StakingAction::BeginDelegationUnbonding {
-            unique_pubkey: [4; 32], signature: [0; 64],
+            unique_pubkey: [4; 32], signature: [0; 64], spends: None,
         };
         let (kind, bond, target, amount) = TransactionParser::staking_action_fields(&action);
         assert_eq!(kind.as_deref(), Some("BeginDelegationUnbonding"));
